@@ -101,14 +101,14 @@ export default function Gallery() {
             {/* Previous Button */}
             <button
               onClick={(e) => { e.stopPropagation(); showPrev(); }}
-              className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 p-3 md:p-4 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors border border-white/10 backdrop-blur-md z-50"
+              className="absolute left-2 md:left-8 top-1/2 -translate-y-1/2 p-2 md:p-4 bg-black/50 md:bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors border border-white/10 backdrop-blur-md z-50"
             >
-              <ChevronLeft size={32} />
+              <ChevronLeft size={24} className="md:w-8 md:h-8" />
             </button>
 
             {/* Current Image */}
             <div 
-              className="w-full h-full max-w-7xl max-h-[90vh] px-16 md:px-24 flex items-center justify-center"
+              className="w-full h-full max-w-7xl max-h-[100vh] md:max-h-[90vh] px-0 md:px-24 flex items-center justify-center"
               onClick={(e) => e.stopPropagation()}
             >
               <motion.img
@@ -119,16 +119,16 @@ export default function Gallery() {
                 transition={{ duration: 0.3 }}
                 src={screenshots[selectedIndex]}
                 alt={`Screenshot ${selectedIndex + 1}`}
-                className="max-w-full max-h-full object-contain rounded-lg drop-shadow-2xl"
+                className="max-w-full max-h-[100vh] md:max-h-full object-contain rounded-none md:rounded-lg drop-shadow-2xl"
               />
             </div>
 
             {/* Next Button */}
             <button
               onClick={(e) => { e.stopPropagation(); showNext(); }}
-              className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 p-3 md:p-4 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors border border-white/10 backdrop-blur-md z-50"
+              className="absolute right-2 md:right-8 top-1/2 -translate-y-1/2 p-2 md:p-4 bg-black/50 md:bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors border border-white/10 backdrop-blur-md z-50"
             >
-              <ChevronRight size={32} />
+              <ChevronRight size={24} className="md:w-8 md:h-8" />
             </button>
             
             {/* Counter */}
