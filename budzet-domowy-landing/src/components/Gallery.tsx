@@ -9,13 +9,23 @@ export default function Gallery() {
 
   const openLightbox = (index: number) => {
     setSelectedIndex(index);
-    document.body.style.overflow = 'hidden';
   };
 
   const closeLightbox = () => {
     setSelectedIndex(null);
-    document.body.style.overflow = 'auto';
   };
+
+  // Handle body scroll locking
+  useEffect(() => {
+    if (selectedIndex !== null) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [selectedIndex]);
 
   const showNext = useCallback(() => {
     if (selectedIndex !== null) {
