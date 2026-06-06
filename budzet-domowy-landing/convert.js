@@ -5,8 +5,14 @@ import path from 'path';
 const artifactsDir = 'C:\\Users\\krzyc\\.gemini\\antigravity-ide\\brain\\f3ea0e76-7a43-493d-bac7-219f81fbe327';
 const outputDir = path.join(process.cwd(), 'public', 'screenshots');
 
+const excludeFiles = [
+  'media__1780760574657.png',
+  'media__1780761036182.png',
+  'media__1780762316992.png'
+];
+
 async function convertAll() {
-  const files = fs.readdirSync(artifactsDir).filter(f => f.startsWith('media__') && f.endsWith('.png'));
+  const files = fs.readdirSync(artifactsDir).filter(f => f.startsWith('media__') && f.endsWith('.png') && !excludeFiles.includes(f));
   
   // Sort files by creation time
   files.sort((a, b) => {
@@ -14,9 +20,6 @@ async function convertAll() {
     const statB = fs.statSync(path.join(artifactsDir, b));
     return statA.mtime.getTime() - statB.mtime.getTime();
   });
-
-  // The first 2 files are old unrelated images, the last 10 are the real screenshots
-  const targetFiles = files.slice(-10);
 
   // Clear existing screenshots
   const existingFiles = fs.readdirSync(outputDir);
@@ -26,17 +29,17 @@ async function convertAll() {
     }
   }
 
-  for (let i = 0; i < targetFiles.length; i++) {
-    const inputPath = path.join(artifactsDir, targetFiles[i]);
+  for (let i = 0; i < files.length; i++) {
+    const inputPath = path.join(artifactsDir, files[i]);
     const outputPath = path.join(outputDir, `screenshot-${i + 1}.webp`);
     
     try {
       await sharp(inputPath)
         .webp({ quality: 85 })
         .toFile(outputPath);
-      console.log(`Converted ${targetFiles[i]} to screenshot-${i + 1}.webp`);
+      console.log(`Converted ${files[i]} to screenshot-${i + 1}.webp`);
     } catch (err) {
-      console.error(`Error converting ${targetFiles[i]}:`, err);
+      console.error(`Error converting ${files[i]}:`, err);
     }
   }
 }
