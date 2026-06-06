@@ -12,8 +12,6 @@ export default function Transactions() {
   const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
 
-  const [visibleCount, setVisibleCount] = useState(50);
-
   const exportToCSV = async () => {
     try {
       const header = "Data,Typ,Opis,Kategoria,Konto,Kwota\n";

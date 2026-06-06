@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { ArrowUpRight, ArrowDownRight, TrendingUp, Target, Activity, Wallet } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Target, Activity, Wallet } from "lucide-react";
 import { useTransactions, useAccounts, useCategories } from "../lib/queries";
 import { useFinanceStore } from "../store/useFinanceStore";
 import BalanceTrendChart from "../components/charts/BalanceTrendChart";

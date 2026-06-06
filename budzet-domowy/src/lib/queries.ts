@@ -68,7 +68,7 @@ export const useAddTransaction = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
-      if (variables.type_ === 'expense') {
+      if (variables.type === 'expense') {
         queryClient.invalidateQueries({ queryKey: ["budgets"] });
       }
       if (variables.tags && variables.tags.length > 0) {
@@ -85,7 +85,7 @@ export const useBulkAddTransactions = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
-      if (variables.some(v => v.type_ === 'expense')) {
+      if (variables.some(v => v.type === 'expense')) {
         queryClient.invalidateQueries({ queryKey: ["budgets"] });
       }
       if (variables.some(v => v.tags && v.tags.length > 0)) {

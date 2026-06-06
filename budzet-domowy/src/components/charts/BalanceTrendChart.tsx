@@ -1,7 +1,7 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMemo } from 'react';
 import { useFinanceStore } from '../../store/useFinanceStore';
-import type { Transaction, Account } from '../../lib/queries';
+import type { Transaction, Account } from '../../types';
 
 interface Props {
   monthsCount?: number;
@@ -41,11 +41,8 @@ export default function BalanceTrendChart({ monthsCount = 6, transactions = [], 
 
     // Now work backwards to find balance at the END of each month
     // The current balance is the balance at the end of the current month
-    const allSortedMonths = Object.keys(monthlyNetFlows).sort((a, b) => b.localeCompare(a)); // Newest to oldest
-    
     // We only need the chart data for the requested `monthsCount`
     const chartData = [];
-    let runningBalance = currentBalance;
     
     // This isn't perfectly accurate if we don't have all historical transactions 
     // to step back to the beginning of time. But it assumes current balance minus

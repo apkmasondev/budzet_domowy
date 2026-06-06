@@ -1,20 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useDialogStore } from "../store/useDialogStore";
 import { Plus, Target, Wallet, Trash2, AlertTriangle, Trophy } from "lucide-react";
 import { useGoals, useAccounts, useCreateGoal, useDeleteGoal, useAddToGoal } from "../lib/queries";
-import { useTheme } from "../store/ThemeProvider";
-
 export default function Goals() {
-  const { theme } = useTheme();
-  const [isDark, setIsDark] = useState(false);
-  
-  useEffect(() => {
-    setIsDark(
-      theme === "dark" || 
-      (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)
-    );
-  }, [theme]);
-
   const { data: goals = [], isLoading } = useGoals();
   const { data: accounts = [] } = useAccounts();
   const createGoalMutation = useCreateGoal();

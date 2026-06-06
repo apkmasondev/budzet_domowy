@@ -1,7 +1,8 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { useFinanceStore } from '../../store/useFinanceStore';
-import { useCategories, type Transaction } from '../../lib/queries';
 import { useMemo } from 'react';
+import type { Transaction } from '../../types';
+import { useCategories } from '../../lib/queries';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#10b981', '#14b8a6', '#0ea5e9'];
 

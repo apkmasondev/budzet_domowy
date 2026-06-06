@@ -1,7 +1,7 @@
 import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useMemo } from 'react';
 import { useFinanceStore } from '../../store/useFinanceStore';
-import type { Transaction } from '../../lib/queries';
+import type { Transaction } from '../../types';
 
 interface Props {
   monthsCount?: number;

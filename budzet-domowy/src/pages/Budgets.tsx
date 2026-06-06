@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useDialogStore } from "../store/useDialogStore";
-import { Copy, AlertCircle, Info } from "lucide-react";
+import { Copy, Info } from "lucide-react";
 import { useAccounts, useCategories, useTransactions, useAllBudgets, useUpsertBudget, useCopyBudgets } from "../lib/queries";
 
 export default function Budgets() {

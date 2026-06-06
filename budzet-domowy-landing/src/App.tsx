@@ -25,7 +25,7 @@ function App() {
             <a href="#features" className="hover:text-white transition-colors">Funkcje</a>
             <a href="mailto:apkmasondev@gmail.com?subject=Zgłoszenie%20błędu%20-%20Domowy%20Budżet" className="hover:text-white transition-colors">Zgłoś Błąd</a>
             <a 
-              href="https://github.com/apkmasondev/budzet_domowy/releases" 
+              href="https://github.com/apkmasondev/budzet_domowy/releases/latest" 
               target="_blank" 
               rel="noopener noreferrer"
               className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors border border-white/5"
@@ -50,7 +50,7 @@ function App() {
             <a href="#features" onClick={() => setIsMenuOpen(false)} className="text-text-muted hover:text-white font-medium">Funkcje</a>
             <a href="mailto:apkmasondev@gmail.com?subject=Zgłoszenie%20błędu%20-%20Domowy%20Budżet" onClick={() => setIsMenuOpen(false)} className="text-text-muted hover:text-white font-medium">Zgłoś Błąd</a>
             <a 
-              href="https://github.com/apkmasondev/budzet_domowy/releases" 
+              href="https://github.com/apkmasondev/budzet_domowy/releases/latest" 
               target="_blank" 
               rel="noopener noreferrer"
               className="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg text-center font-medium transition-colors"

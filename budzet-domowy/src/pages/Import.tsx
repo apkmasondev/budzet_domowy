@@ -62,7 +62,7 @@ export default function Import() {
         skipEmptyLines: true,
         complete: (results) => {
           if (results.data && results.data.length > 0) {
-            setCsvData(results.data);
+            setCsvData(results.data as Record<string, string>[]);
             const cols = Object.keys(results.data[0] as object);
             setHeaders(cols);
             
@@ -161,18 +161,18 @@ export default function Import() {
 
       return {
         account_id: parseInt(accountId),
-        category_id: catId || null,
+        category_id: catId || undefined,
         amount: absAmount,
         type: isIncome ? "income" : "expense",
         description: desc || null,
         date: parseDate(row[dateColumn] as string),
-        transfer_to_id: null,
+        transfer_to_id: undefined,
         tags: []
       };
     }).filter(p => p.amount > 0); // Ignore exactly 0.00 entries
 
     try {
-      await bulkAddMutation.mutateAsync(payloads);
+      await bulkAddMutation.mutateAsync(payloads as any);
       setImportResult({ success: payloads.length, total: csvData.length });
     } catch (e) {
       console.error(e);

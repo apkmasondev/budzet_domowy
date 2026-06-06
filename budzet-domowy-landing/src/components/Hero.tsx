@@ -33,10 +33,15 @@ export default function Hero() {
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-16">
-            <button className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-8 py-4 rounded-full font-semibold transition-all shadow-lg shadow-primary/25 hover:scale-105 active:scale-95">
+            <a 
+              href="https://github.com/apkmasondev/budzet_domowy/releases/latest"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-8 py-4 rounded-full font-semibold transition-all shadow-lg shadow-primary/25 hover:scale-105 active:scale-95"
+            >
               <Download size={20} />
               Pobierz za darmo
-            </button>
+            </a>
             <div className="flex items-center gap-4 text-text-muted text-sm mt-4 sm:mt-0">
               <span className="flex items-center gap-1"><Monitor size={16} /> Windows, macOS, Linux</span>
             </div>

@@ -7,7 +7,7 @@ export default function Subscriptions() {
   const { data: recurrings = [], isLoading } = useRecurrings();
   const { data: categories = [] } = useCategories();
   const { data: accounts = [] } = useAccounts();
-  const { data: suggestions = [], isLoading: isLoadingSuggestions } = useRecurringSuggestions();
+  const { data: suggestions = [] } = useRecurringSuggestions();
   const addRecurringMutation = useAddRecurring();
   const deleteRecurringMutation = useDeleteRecurring();
   const ignoreSuggestionMutation = useIgnoreSubscriptionSuggestion();

@@ -1,4 +1,4 @@
-import { Wallet, ArrowRight, PieChart as PieChartIcon, TrendingDown, TrendingUp, History, Repeat, Printer, AlertCircle, CheckCircle2, X } from "lucide-react";
+import { Wallet, PieChart as PieChartIcon, TrendingDown, TrendingUp, History, Repeat, Printer, AlertCircle, CheckCircle2, X } from "lucide-react";
 import { useFinanceStore } from "../store/useFinanceStore";
 import SpendingPieChart from "../components/charts/SpendingPieChart";
 import MonthlyCashFlowChart from "../components/charts/MonthlyCashFlowChart";

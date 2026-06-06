@@ -18,7 +18,7 @@ export default function CTA() {
           
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
             <a 
-              href="https://github.com/apkmasondev/budzet_domowy/releases" 
+              href="https://github.com/apkmasondev/budzet_domowy/releases/latest" 
               target="_blank" 
               rel="noopener noreferrer"
               className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-8 py-4 rounded-full font-semibold transition-all shadow-lg shadow-primary/25 hover:scale-105 active:scale-95 w-full sm:w-auto justify-center"
