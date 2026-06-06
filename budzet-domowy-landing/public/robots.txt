@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://apkmasondev.github.io/budzet_domowy/sitemap.xml
