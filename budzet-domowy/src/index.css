@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Outfit", sans-serif;
+}
+
+body {
+  font-family: "Inter", sans-serif;
+}
+
+:root {
+  color-scheme: light;
+  --color-background: #f8fafc;
+  --color-foreground: #0f172a;
+  --color-primary: #4f46e5;
+  --color-primary-foreground: #ffffff;
+  --color-muted: #e2e8f0;
+  --color-muted-foreground: #64748b;
+  --color-border: #cbd5e1;
+  --color-card: #ffffff;
+  --color-card-foreground: #0f172a;
+}
+
+.dark {
+  color-scheme: dark;
+  --color-background: #111113;
+  --color-foreground: #f4f4f5;
+  --color-primary: #818cf8;
+  --color-primary-foreground: #ffffff;
+  --color-muted: #27272a;
+  --color-muted-foreground: #a1a1aa;
+  --color-border: #3f3f46;
+  --color-card: #1c1c1f;
+  --color-card-foreground: #f4f4f5;
+}
+
+/* Base styles for a premium look */
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar for desktop app feel */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-muted);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border);
+}
+
+/* Wymuszenie wysokiej jakości druku i trybu jasnego (Light Mode) na PDF */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  
+  :root {
+    color-scheme: light;
+    --color-background: #ffffff;
+    --color-foreground: #000000;
+    --color-muted: #f1f5f9;
+    --color-muted-foreground: #64748b;
+    --color-border: #e2e8f0;
+    --color-card: #ffffff;
+    --color-card-foreground: #000000;
+  }
+
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+}
