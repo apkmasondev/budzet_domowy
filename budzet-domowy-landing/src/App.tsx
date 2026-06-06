@@ -1,9 +1,13 @@
+import { useState } from 'react';
 import Hero from './components/Hero';
 import Features from './components/Features';
 import CTA from './components/CTA';
 import Footer from './components/Footer';
+import { Menu, X } from 'lucide-react';
 
 function App() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   return (
     <div className="min-h-screen flex flex-col font-sans text-text-main selection:bg-primary/30 selection:text-white">
       {/* Navbar / Header */}
@@ -13,19 +17,45 @@ function App() {
             <img src="/budzet_domowy/app-icon.svg" alt="Logo" className="w-8 h-8 drop-shadow-md" />
             Domowy Budżet
           </div>
+          
+          {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-text-muted">
             <a href="#features" className="hover:text-white transition-colors">Funkcje</a>
             <a href="https://github.com/apkmasondev/budzet_domowy/issues" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Zgłoś Błąd</a>
+            <a 
+              href="https://github.com/apkmasondev/budzet_domowy/releases" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors border border-white/5"
+            >
+              Pobierz
+            </a>
           </nav>
-          <a 
-            href="https://github.com/apkmasondev/budzet_domowy/releases" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors border border-white/5"
+
+          {/* Mobile Menu Button */}
+          <button 
+            className="md:hidden p-2 text-text-muted hover:text-white transition-colors"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
           >
-            Pobierz
-          </a>
+            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
+
+        {/* Mobile Nav Dropdown */}
+        {isMenuOpen && (
+          <div className="md:hidden border-t border-white/5 bg-background/95 backdrop-blur-xl px-4 py-4 flex flex-col gap-4">
+            <a href="#features" onClick={() => setIsMenuOpen(false)} className="text-text-muted hover:text-white font-medium">Funkcje</a>
+            <a href="https://github.com/apkmasondev/budzet_domowy/issues" target="_blank" rel="noopener noreferrer" className="text-text-muted hover:text-white font-medium">Zgłoś Błąd</a>
+            <a 
+              href="https://github.com/apkmasondev/budzet_domowy/releases" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg text-center font-medium transition-colors"
+            >
+              Pobierz Aplikację
+            </a>
+          </div>
+        )}
       </header>
 
       <main className="flex-grow">

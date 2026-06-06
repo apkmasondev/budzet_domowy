@@ -14,10 +14,15 @@ export default function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
-          <div className="flex justify-center mb-6">
-            <div className="p-4 rounded-3xl bg-surface/50 border border-white/10 backdrop-blur-md shadow-2xl shadow-primary/20">
-              <img src="/budzet_domowy/app-icon.svg" alt="Domowy Budżet Icon" className="w-20 h-20" />
-            </div>
+          <div className="flex justify-center mb-8">
+            <motion.img 
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              src="/budzet_domowy/app-icon.svg" 
+              alt="Domowy Budżet Icon" 
+              className="w-32 h-32 drop-shadow-2xl" 
+            />
           </div>
           <h1 className="text-5xl md:text-7xl font-black tracking-tighter mb-6 leading-tight">
             Twój Budżet. <br className="hidden md:block" />
@@ -42,18 +47,28 @@ export default function Hero() {
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="relative mx-auto max-w-5xl"
+          className="relative mx-auto max-w-6xl"
         >
-          {/* Placeholder for the main screenshot */}
           <div className="glass-card rounded-2xl p-2 md:p-4 shadow-2xl relative group">
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10 rounded-2xl pointer-events-none" />
-            <div className="aspect-[16/10] bg-surface-hover rounded-xl overflow-hidden relative flex items-center justify-center border border-white/5">
-              <div className="text-center p-8">
-                <Monitor size={64} className="mx-auto text-primary/50 mb-4" />
-                <h3 className="text-xl font-medium text-white/70 mb-2">Miejsce na Twój Zrzut Ekranu</h3>
-                <p className="text-sm text-text-muted max-w-md">Zrób niesamowitego screena ze swojej aplikacji Domowy Budżet i umieść go tutaj, podmieniając obrazek w kodzie.</p>
-              </div>
-              {/* <img src="/screenshots/app-main.png" alt="Domowy Budżet App" className="w-full h-full object-cover" /> */}
+            
+            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 rounded-xl relative scrollbar-hide pb-2">
+              {[11, 8, 9, 10, 12].map((num) => (
+                <div key={num} className="min-w-full md:min-w-[85%] snap-center bg-surface-hover overflow-hidden relative flex items-center justify-center border border-white/5 shrink-0 rounded-xl">
+                  <img 
+                    src={`/budzet_domowy/screenshots/screenshot-${num}.webp`} 
+                    alt={`Domowy Budżet Screenshot ${num}`} 
+                    className="w-full h-auto object-cover" 
+                    loading="lazy"
+                  />
+                </div>
+              ))}
+            </div>
+            
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+              <span className="w-2 h-2 rounded-full bg-white/50"></span>
+              <span className="w-2 h-2 rounded-full bg-white/20"></span>
+              <span className="w-2 h-2 rounded-full bg-white/20"></span>
             </div>
           </div>
         </motion.div>
