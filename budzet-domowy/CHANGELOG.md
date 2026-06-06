@@ -3,6 +3,12 @@
 Wszystkie znaczące zmiany w tym projekcie będą dokumentowane w tym pliku.
 
 ## [W toku]
+### Strona Landing Page (budzet-domowy-landing)
+- **Nowy Projekt Landing Page**: Dodano nowoczesny landing page dla aplikacji desktopowej, zbudowany w React 18, Tailwind CSS v4, Framer Motion i Lucide React.
+- **Kompletna Konfiguracja SEO**: Dodano zaawansowane meta-tagi, ikony oraz dostosowane opisy ułatwiające pozycjonowanie.
+- **CI/CD i Automatyczny Deploy**: Stworzono przepływ pracy w GitHub Actions do budowania i publikowania strony na GitHub Pages przy każdym wypchnięciu zmian do gałęzi `main`.
+- **Organizacja Monorepo**: Przeniesiono pliki strony do osobnego podkatalogu, dzięki czemu struktura kodu aplikacji i strony jest czysta i odseparowana.
+
 ### Faza 16: Zero-Based Budgeting (ZBB / Metoda Kopertowa)
 - **Przebudowa Budżetów**: Aplikacja operuje teraz na prawdziwych dostępnych środkach (Kopertach) zamiast tylko sztucznych limitów.
 - **Do Rozdysponowania**: Nowy wskaźnik ("Ready to Assign") na górze strony Budżety i na Dashboardzie obliczany dynamicznie jako: `Suma Kont - Suma Dostępnych Środków w Kategoriach`.
