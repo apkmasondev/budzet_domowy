@@ -54,7 +54,7 @@ export default function Hero() {
             
             <div className="bg-surface-hover overflow-hidden relative flex items-center justify-center border border-white/5 rounded-xl aspect-[16/10]">
               <img 
-                src="/budzet_domowy/screenshots/screenshot-9.webp" 
+                src="/budzet_domowy/screenshots/screenshot-1.webp" 
                 alt="Domowy Budżet Dashboard" 
                 className="w-full h-full object-cover" 
               />
