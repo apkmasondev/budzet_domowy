@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Hero from './components/Hero';
+import Gallery from './components/Gallery';
 import Features from './components/Features';
 import CTA from './components/CTA';
 import Footer from './components/Footer';
@@ -20,6 +21,7 @@ function App() {
           
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-text-muted">
+            <a href="#gallery" className="hover:text-white transition-colors">Galeria</a>
             <a href="#features" className="hover:text-white transition-colors">Funkcje</a>
             <a href="https://github.com/apkmasondev/budzet_domowy/issues" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Zgłoś Błąd</a>
             <a 
@@ -44,6 +46,7 @@ function App() {
         {/* Mobile Nav Dropdown */}
         {isMenuOpen && (
           <div className="md:hidden border-t border-white/5 bg-background/95 backdrop-blur-xl px-4 py-4 flex flex-col gap-4">
+            <a href="#gallery" onClick={() => setIsMenuOpen(false)} className="text-text-muted hover:text-white font-medium">Galeria</a>
             <a href="#features" onClick={() => setIsMenuOpen(false)} className="text-text-muted hover:text-white font-medium">Funkcje</a>
             <a href="https://github.com/apkmasondev/budzet_domowy/issues" target="_blank" rel="noopener noreferrer" className="text-text-muted hover:text-white font-medium">Zgłoś Błąd</a>
             <a 
@@ -60,6 +63,7 @@ function App() {
 
       <main className="flex-grow">
         <Hero />
+        <Gallery />
         <div id="features">
           <Features />
         </div>

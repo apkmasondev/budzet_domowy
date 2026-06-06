@@ -47,28 +47,17 @@ export default function Hero() {
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="relative mx-auto max-w-6xl"
+          className="relative mx-auto max-w-5xl"
         >
           <div className="glass-card rounded-2xl p-2 md:p-4 shadow-2xl relative group">
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10 rounded-2xl pointer-events-none" />
             
-            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 rounded-xl relative scrollbar-hide pb-2">
-              {[11, 8, 9, 10, 12].map((num) => (
-                <div key={num} className="min-w-full md:min-w-[85%] snap-center bg-surface-hover overflow-hidden relative flex items-center justify-center border border-white/5 shrink-0 rounded-xl">
-                  <img 
-                    src={`/budzet_domowy/screenshots/screenshot-${num}.webp`} 
-                    alt={`Domowy Budżet Screenshot ${num}`} 
-                    className="w-full h-auto object-cover" 
-                    loading="lazy"
-                  />
-                </div>
-              ))}
-            </div>
-            
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-20">
-              <span className="w-2 h-2 rounded-full bg-white/50"></span>
-              <span className="w-2 h-2 rounded-full bg-white/20"></span>
-              <span className="w-2 h-2 rounded-full bg-white/20"></span>
+            <div className="bg-surface-hover overflow-hidden relative flex items-center justify-center border border-white/5 rounded-xl aspect-[16/10]">
+              <img 
+                src="/budzet_domowy/screenshots/screenshot-8.webp" 
+                alt="Domowy Budżet Dashboard" 
+                className="w-full h-full object-cover" 
+              />
             </div>
           </div>
         </motion.div>
