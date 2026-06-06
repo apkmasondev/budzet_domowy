@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, X, Maximize2 } from 'lucide-react';
 
-const screenshots = Array.from({ length: 12 }, (_, i) => `/budzet_domowy/screenshots/screenshot-${i + 1}.webp`);
+const screenshots = Array.from({ length: 10 }, (_, i) => `/budzet_domowy/screenshots/screenshot-${i + 1}.webp`);
 
 export default function Gallery() {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);

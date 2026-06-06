@@ -15,17 +15,28 @@ async function convertAll() {
     return statA.mtime.getTime() - statB.mtime.getTime();
   });
 
-  for (let i = 0; i < files.length; i++) {
-    const inputPath = path.join(artifactsDir, files[i]);
+  // The first 2 files are old unrelated images, the last 10 are the real screenshots
+  const targetFiles = files.slice(-10);
+
+  // Clear existing screenshots
+  const existingFiles = fs.readdirSync(outputDir);
+  for (const file of existingFiles) {
+    if (file.endsWith('.webp')) {
+      fs.unlinkSync(path.join(outputDir, file));
+    }
+  }
+
+  for (let i = 0; i < targetFiles.length; i++) {
+    const inputPath = path.join(artifactsDir, targetFiles[i]);
     const outputPath = path.join(outputDir, `screenshot-${i + 1}.webp`);
     
     try {
       await sharp(inputPath)
         .webp({ quality: 85 })
         .toFile(outputPath);
-      console.log(`Converted ${files[i]} to screenshot-${i + 1}.webp`);
+      console.log(`Converted ${targetFiles[i]} to screenshot-${i + 1}.webp`);
     } catch (err) {
-      console.error(`Error converting ${files[i]}:`, err);
+      console.error(`Error converting ${targetFiles[i]}:`, err);
     }
   }
 }
