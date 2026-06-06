@@ -13,7 +13,7 @@ export default function CTA() {
           
           <h2 className="text-3xl md:text-5xl font-bold mb-6">Gotowy odzyskać kontrolę?</h2>
           <p className="text-xl text-text-muted mb-10 max-w-2xl mx-auto">
-            Dołącz do grona testerów wersji 2.0. Pobierz aplikację już teraz za darmo i zacznij zarządzać finansami na własnych zasadach. Znalazłeś błąd? Daj nam znać na GitHubie!
+            Dołącz do grona testerów wersji 2.0. Pobierz aplikację już teraz za darmo i zacznij zarządzać finansami na własnych zasadach. Znalazłeś błąd? Napisz do nas!
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
@@ -27,9 +27,7 @@ export default function CTA() {
             </a>
             
             <a 
-              href="https://github.com/apkmasondev/budzet_domowy/issues" 
-              target="_blank" 
-              rel="noopener noreferrer"
+              href="mailto:apkmasondev@gmail.com?subject=Zgłoszenie%20błędu%20-%20Domowy%20Budżet" 
               className="flex items-center gap-2 bg-surface hover:bg-surface-hover border border-white/10 text-white px-8 py-4 rounded-full font-semibold transition-all hover:scale-105 active:scale-95 w-full sm:w-auto justify-center"
             >
               <Terminal size={20} />
