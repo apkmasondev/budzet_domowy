@@ -7,12 +7,10 @@ function App() {
   return (
     <div className="min-h-screen flex flex-col font-sans text-text-main selection:bg-primary/30 selection:text-white">
       {/* Navbar / Header */}
-      <header className="fixed top-0 w-full z-50 border-b border-white/5 bg-background/80 backdrop-blur-md">
+      <header className="fixed top-0 w-full z-50 border-b border-white/5 bg-background/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xl font-bold">
-            <div className="w-8 h-8 rounded bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white">
-              <span className="font-serif">B</span>
-            </div>
+          <div className="flex items-center gap-3 text-xl font-bold tracking-tight">
+            <img src="/budzet_domowy/app-icon.svg" alt="Logo" className="w-8 h-8 drop-shadow-md" />
             Domowy Budżet
           </div>
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-text-muted">

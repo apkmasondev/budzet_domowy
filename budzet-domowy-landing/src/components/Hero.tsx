@@ -4,17 +4,24 @@ import { Download, Monitor } from 'lucide-react';
 export default function Hero() {
   return (
     <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-primary/20 blur-[120px] rounded-full pointer-events-none -z-10" />
+      {/* Premium glow effects */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[600px] bg-primary/20 blur-[150px] rounded-full pointer-events-none -z-10 opacity-70" />
+      <div className="absolute top-32 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-purple-500/20 blur-[120px] rounded-full pointer-events-none -z-10 opacity-60" />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
         >
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6">
+          <div className="flex justify-center mb-6">
+            <div className="p-4 rounded-3xl bg-surface/50 border border-white/10 backdrop-blur-md shadow-2xl shadow-primary/20">
+              <img src="/budzet_domowy/app-icon.svg" alt="Domowy Budżet Icon" className="w-20 h-20" />
+            </div>
+          </div>
+          <h1 className="text-5xl md:text-7xl font-black tracking-tighter mb-6 leading-tight">
             Twój Budżet. <br className="hidden md:block" />
-            <span className="text-gradient">W 100% Prywatnie.</span>
+            <span className="text-gradient drop-shadow-sm">W 100% Prywatnie.</span>
           </h1>
           <p className="mt-4 max-w-2xl text-xl text-text-muted mx-auto mb-10">
             Nowoczesna i ultraszybka aplikacja desktopowa do zarządzania finansami. Żadnej chmury, żadnych subskrypcji. Twoje dane zostają u Ciebie.

@@ -5,10 +5,8 @@ export default function Footer() {
     <footer className="border-t border-white/10 bg-background/50 backdrop-blur-md pt-12 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
         
-        <div className="flex items-center gap-2 text-xl font-bold">
-          <div className="w-8 h-8 rounded bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white">
-            <span className="font-serif">B</span>
-          </div>
+        <div className="flex items-center gap-3 text-xl font-bold tracking-tight">
+          <img src="/budzet_domowy/app-icon.svg" alt="Logo" className="w-8 h-8 opacity-80" />
           Domowy Budżet
         </div>
 
