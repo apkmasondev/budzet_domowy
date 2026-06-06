@@ -106,16 +106,16 @@ export default function GlobalTransactionModal() {
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium">Konto</label>
               <select required value={accountId} onChange={e => setAccountId(e.target.value)} className="bg-background border border-border text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                <option value="">Wybierz konto...</option>
-                {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({a.balance.toFixed(2)} PLN)</option>)}
+                <option value="" className="bg-background text-foreground">Wybierz konto...</option>
+                {accounts.map(a => <option key={a.id} value={a.id} className="bg-background text-foreground">{a.name} ({a.balance.toFixed(2)} PLN)</option>)}
               </select>
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium">Kategoria</label>
               <select required value={categoryId} onChange={e => setCategoryId(e.target.value)} className="bg-background border border-border text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                <option value="">Wybierz kategorię...</option>
-                {categories.filter(c => c.type === type || c.type === "both").map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                <option value="" className="bg-background text-foreground">Wybierz kategorię...</option>
+                {categories.filter(c => c.type === type || c.type === "both").map(c => <option key={c.id} value={c.id} className="bg-background text-foreground">{c.name}</option>)}
               </select>
             </div>
 

@@ -4,7 +4,7 @@ import { Plus, ArrowDownRight, ArrowUpRight, Search, Download, ArrowUpDown, Filt
 import { useTransactions, useAccounts, useCategories } from "../lib/queries";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
-import { useWindowVirtualizer } from "@tanstack/react-virtual";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 export default function Transactions() {
   const { privacyMode, setTransactionModalOpen } = useFinanceStore();
@@ -107,17 +107,17 @@ export default function Transactions() {
     return result;
   }, [transactions, searchTerm, filterType, sortBy, categories]);
 
-  const listRef = useRef<HTMLDivElement>(null);
+  const parentRef = useRef<HTMLDivElement>(null);
   
-  const virtualizer = useWindowVirtualizer({
+  const virtualizer = useVirtualizer({
     count: filteredAndSorted.length,
+    getScrollElement: () => parentRef.current,
     estimateSize: () => 76, // wysokość wiersza to ok. 76px (p-4 + treść)
     overscan: 5,
-    scrollMargin: listRef.current?.offsetTop ?? 0,
   });
 
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full max-w-7xl mx-auto" ref={listRef}>
+    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full max-w-7xl mx-auto">
       <div className="flex justify-between items-center relative z-10">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Transakcje</h1>
         <div className="flex gap-3">
@@ -136,7 +136,7 @@ export default function Transactions() {
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden relative z-10">
+      <div className="bg-card border border-border rounded-xl shadow-sm relative z-10 flex flex-col overflow-hidden" style={{ maxHeight: 'calc(100vh - 180px)' }}>
         
         {isTransactionsLoading && (
            <div className="p-8 text-center text-muted-foreground animate-pulse">Ładowanie transakcji...</div>
@@ -168,22 +168,22 @@ export default function Transactions() {
                 onChange={(e) => setSortBy(e.target.value as any)}
                 className="bg-transparent text-sm font-medium focus:outline-none appearance-none cursor-pointer text-foreground pr-4"
               >
-                <option value="date_desc">Najnowsze</option>
-                <option value="date_asc">Najstarsze</option>
-                <option value="amount_desc">Kwota malejąco</option>
-                <option value="amount_asc">Kwota rosnąco</option>
+                <option value="date_desc" className="bg-background text-foreground">Najnowsze</option>
+                <option value="date_asc" className="bg-background text-foreground">Najstarsze</option>
+                <option value="amount_desc" className="bg-background text-foreground">Kwota malejąco</option>
+                <option value="amount_asc" className="bg-background text-foreground">Kwota rosnąco</option>
               </select>
             </div>
           </div>
         </div>
 
         {filteredAndSorted.length === 0 ? (
-           <div className="p-12 text-center flex flex-col items-center justify-center">
+           <div className="p-12 text-center flex flex-col items-center justify-center flex-1">
              <Filter size={48} className="text-muted-foreground opacity-30 mb-4" />
              <p className="text-lg font-medium text-muted-foreground">Brak pasujących transakcji.</p>
            </div>
         ) : (
-          <div className="flex flex-col">
+          <div ref={parentRef} className="flex-1 overflow-y-auto relative">
             <div 
               className="divide-y divide-border relative"
               style={{ height: `${virtualizer.getTotalSize()}px` }}

@@ -47,6 +47,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Dropdown options global styles */
+option {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
 /* Custom scrollbar for desktop app feel */
 ::-webkit-scrollbar {
   width: 8px;
