@@ -1,4 +1,4 @@
-import { Github, Heart } from 'lucide-react';
+import { Heart, Terminal } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -23,7 +23,7 @@ export default function Footer() {
             rel="noopener noreferrer"
             className="text-text-muted hover:text-white transition-colors"
           >
-            <Github size={24} />
+            <Terminal size={24} />
             <span className="sr-only">GitHub</span>
           </a>
         </div>

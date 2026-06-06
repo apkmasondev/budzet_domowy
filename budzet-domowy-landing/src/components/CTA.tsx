@@ -1,4 +1,4 @@
-import { Github, Bug, ArrowRight } from 'lucide-react';
+import { Bug, ArrowRight, Terminal } from 'lucide-react';
 
 export default function CTA() {
   return (
@@ -32,7 +32,7 @@ export default function CTA() {
               rel="noopener noreferrer"
               className="flex items-center gap-2 bg-surface hover:bg-surface-hover border border-white/10 text-white px-8 py-4 rounded-full font-semibold transition-all hover:scale-105 active:scale-95 w-full sm:w-auto justify-center"
             >
-              <Github size={20} />
+              <Terminal size={20} />
               Zgłoś Błąd
             </a>
           </div>

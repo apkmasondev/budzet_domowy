@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Download, Monitor, CheckCircle, Apple, MonitorDot } from 'lucide-react';
+import { Download, Monitor } from 'lucide-react';
 
 export default function Hero() {
   return (
@@ -26,9 +26,7 @@ export default function Hero() {
               Pobierz za darmo
             </button>
             <div className="flex items-center gap-4 text-text-muted text-sm mt-4 sm:mt-0">
-              <span className="flex items-center gap-1"><Monitor size={16} /> Windows</span>
-              <span className="flex items-center gap-1"><Apple size={16} /> macOS</span>
-              <span className="flex items-center gap-1"><MonitorDot size={16} /> Linux</span>
+              <span className="flex items-center gap-1"><Monitor size={16} /> Windows, macOS, Linux</span>
             </div>
           </div>
         </motion.div>
