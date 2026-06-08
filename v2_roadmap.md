@@ -46,15 +46,3 @@ Skoro jesteśmy przy szczerej, inżynieryjskiej rozmowie, obecny kod jest fajny 
     * Warto zamienić nasz plik `api.ts` w bardziej obiektową strukturę klas, lub użyć paczek jak `TanStack Query` (React Query) zamiast czystego `Zustanda` z `useEffect`. React Query automatycznie ogarnia inwalidację cache'u, retry, stany ładowania i rozwiązałoby nam problem "race-conditions" z autoryzacją za darmo.
 3. **Strict Design Tokens:**
     * Pomimo Tailwinda, wciąż mamy trochę "magicznych liczb" i podawanych z palca klas (np. `bg-primary/10`). Warto stworzyć własne, re-używalne komponenty (np. `<Button variant="glass" />`), oparte na popularnej bibliotece `Radix UI` (Dostępność, wsparcie dla klawiatur i czytników ekranu).
-
----
-
-## 🚀 Kolejny Krok (Decyzja)
-
-Gdybym miał Ci doradzić od czego zacząć wersję V2:
-
-1. **Natychmiastowo:** Zmienić zarządzanie stanem z `useEffect` na `TanStack Query` + dodać testy logiki do Rusta.
-2. **Krótkoterminowo:** Wprowadzić migracje bazy i system Tagów dla transakcji.
-3. **Długoterminowo:** Wprowadzić moduł "Prognozy Cashflow" i asystenta wykrywającego abonamenty.
-4. **UI/UX:** Pamiętaj o zachowaniu wysokich standardów przy wyglądzie
-5. **Changelog:** Uzupełnij pliki readme i changelog
