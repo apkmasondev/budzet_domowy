@@ -13,11 +13,10 @@ export default function Transactions() {
   const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
   const deleteTransactionMutation = useDeleteTransaction();
-  const { open: openDialog } = useDialogStore();
+  const { showConfirm } = useDialogStore();
 
   const handleDelete = (id: number) => {
-    openDialog(
-      "confirm",
+    showConfirm(
       "Usuń operację",
       "Czy na pewno chcesz usunąć tę operację? Pieniądze wrócą na Twoje konto bankowe/portfel. Tego działania nie można cofnąć.",
       () => {
