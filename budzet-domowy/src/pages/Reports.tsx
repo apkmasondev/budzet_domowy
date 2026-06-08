@@ -115,7 +115,7 @@ export default function Reports() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-6">
         <div>
           <h1 className="text-4xl font-black tracking-tight text-foreground">
             Raporty
@@ -126,9 +126,9 @@ export default function Reports() {
         </div>
         
         {/* Panel Sterowania */}
-        <div className="flex flex-col sm:flex-row items-center gap-4 bg-card/60 backdrop-blur-md border border-border/50 p-3 rounded-2xl shadow-sm print:hidden">
+        <div className="flex flex-row flex-wrap items-center gap-4 bg-card/60 backdrop-blur-md border border-border/50 p-3 rounded-2xl shadow-sm print:hidden w-full xl:w-auto">
           {/* Zakresy dat */}
-          <div className="flex items-center gap-1 bg-muted/50 p-1.5 rounded-xl border border-border/50 w-full sm:w-auto overflow-x-auto">
+          <div className="flex items-center flex-wrap gap-1 bg-muted/50 p-1.5 rounded-xl border border-border/50">
             {(["3M", "6M", "12M", "YTD", "ALL"] as const).map(range => (
               <button
                 key={range}
@@ -147,11 +147,11 @@ export default function Reports() {
           <div className="hidden sm:block w-px h-8 bg-border/50 mx-2"></div>
 
           {/* Filtry kont */}
-          <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+          <div className="flex items-center flex-wrap gap-3">
             <span className="text-sm font-semibold text-muted-foreground flex items-center gap-2 whitespace-nowrap">
               <Wallet size={16} /> Filtruj konta:
             </span>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setSelectedAccounts([])}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap border ${

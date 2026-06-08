@@ -31,6 +31,19 @@ pub struct CreateTransactionPayload {
     pub tags: Option<Vec<String>>,
 }
 
+#[derive(Deserialize)]
+pub struct UpdateTransactionPayload {
+    pub account_id: i64,
+    pub category_id: Option<i64>,
+    pub amount: f64,
+    #[serde(rename = "type")]
+    pub type_: String,
+    pub description: Option<String>,
+    pub date: String,
+    pub transfer_to_id: Option<i64>,
+    pub tags: Option<Vec<String>>,
+}
+
 pub fn create_transaction(conn: &mut Connection, payload: CreateTransactionPayload) -> Result<i64> {
     if payload.amount <= 0.0 {
         return Err(rusqlite::Error::InvalidParameterName("Kwota musi być większa od zera".to_string()));
@@ -184,4 +197,119 @@ pub fn bulk_insert_transactions(conn: &mut Connection, payloads: Vec<CreateTrans
 
     tx.commit()?;
     Ok(count)
+}
+
+pub fn delete_transaction(conn: &mut Connection, id: i64) -> Result<()> {
+    let tx = conn.transaction()?;
+
+    let (account_id, amount, type_, transfer_to_id) = {
+        let mut stmt = tx.prepare("SELECT account_id, amount, type, transfer_to_id FROM transactions WHERE id = ?1")?;
+        let mut rows = stmt.query(params![id])?;
+        if let Some(row) = rows.next()? {
+            (
+                row.get::<_, i64>(0)?,
+                row.get::<_, f64>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<i64>>(3)?,
+            )
+        } else {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+    };
+
+    // Revert balance
+    if type_ == "income" {
+        tx.execute("UPDATE accounts SET balance = balance - ?1 WHERE id = ?2", params![amount, account_id])?;
+    } else if type_ == "expense" {
+        tx.execute("UPDATE accounts SET balance = balance + ?1 WHERE id = ?2", params![amount, account_id])?;
+    } else if type_ == "transfer" {
+        if let Some(transfer_to) = transfer_to_id {
+            tx.execute("UPDATE accounts SET balance = balance + ?1 WHERE id = ?2", params![amount, account_id])?;
+            tx.execute("UPDATE accounts SET balance = balance - ?1 WHERE id = ?2", params![amount, transfer_to])?;
+        }
+    }
+
+    tx.execute("DELETE FROM transaction_tags WHERE transaction_id = ?1", params![id])?;
+    tx.execute("DELETE FROM transactions WHERE id = ?1", params![id])?;
+
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn update_transaction(conn: &mut Connection, id: i64, payload: UpdateTransactionPayload) -> Result<()> {
+    if payload.amount <= 0.0 {
+        return Err(rusqlite::Error::InvalidParameterName("Kwota musi być większa od zera".to_string()));
+    }
+
+    let tx = conn.transaction()?;
+
+    let (old_account_id, old_amount, old_type_, old_transfer_to_id) = {
+        let mut stmt = tx.prepare("SELECT account_id, amount, type, transfer_to_id FROM transactions WHERE id = ?1")?;
+        let mut rows = stmt.query(params![id])?;
+        if let Some(row) = rows.next()? {
+            (
+                row.get::<_, i64>(0)?,
+                row.get::<_, f64>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<i64>>(3)?,
+            )
+        } else {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+    };
+
+    if old_type_ == "income" {
+        tx.execute("UPDATE accounts SET balance = balance - ?1 WHERE id = ?2", params![old_amount, old_account_id])?;
+    } else if old_type_ == "expense" {
+        tx.execute("UPDATE accounts SET balance = balance + ?1 WHERE id = ?2", params![old_amount, old_account_id])?;
+    } else if old_type_ == "transfer" {
+        if let Some(transfer_to) = old_transfer_to_id {
+            tx.execute("UPDATE accounts SET balance = balance + ?1 WHERE id = ?2", params![old_amount, old_account_id])?;
+            tx.execute("UPDATE accounts SET balance = balance - ?1 WHERE id = ?2", params![old_amount, transfer_to])?;
+        }
+    }
+
+    // Apply new balance
+    if payload.type_ == "income" {
+        tx.execute("UPDATE accounts SET balance = balance + ?1 WHERE id = ?2", params![payload.amount, payload.account_id])?;
+    } else if payload.type_ == "expense" {
+        tx.execute("UPDATE accounts SET balance = balance - ?1 WHERE id = ?2", params![payload.amount, payload.account_id])?;
+    } else if payload.type_ == "transfer" {
+        if let Some(transfer_to) = payload.transfer_to_id {
+            tx.execute("UPDATE accounts SET balance = balance - ?1 WHERE id = ?2", params![payload.amount, payload.account_id])?;
+            tx.execute("UPDATE accounts SET balance = balance + ?1 WHERE id = ?2", params![payload.amount, transfer_to])?;
+        }
+    }
+
+    // Update row
+    tx.execute(
+        "UPDATE transactions 
+         SET account_id = ?1, category_id = ?2, amount = ?3, type = ?4, description = ?5, date = ?6, transfer_to_id = ?7, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?8",
+        params![
+            payload.account_id,
+            payload.category_id,
+            payload.amount,
+            payload.type_,
+            payload.description,
+            payload.date,
+            payload.transfer_to_id,
+            id
+        ],
+    )?;
+
+    // Handle tags
+    tx.execute("DELETE FROM transaction_tags WHERE transaction_id = ?1", params![id])?;
+    if let Some(tags_list) = payload.tags {
+        for tag_name in tags_list {
+            let tag_name = tag_name.trim();
+            if !tag_name.is_empty() {
+                let tag_id = tags::create_tag(&tx, tag_name, None)?;
+                tags::add_tag_to_transaction(&tx, id as i32, tag_id)?;
+            }
+        }
+    }
+
+    tx.commit()?;
+    Ok(())
 }

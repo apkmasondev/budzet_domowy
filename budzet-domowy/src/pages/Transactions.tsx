@@ -1,7 +1,8 @@
 import { useState, useMemo, useRef } from "react";
 import { useFinanceStore } from "../store/useFinanceStore";
-import { Plus, ArrowDownRight, ArrowUpRight, Search, Download, ArrowUpDown, Filter } from "lucide-react";
-import { useTransactions, useAccounts, useCategories } from "../lib/queries";
+import { Plus, ArrowDownRight, ArrowUpRight, Search, Download, ArrowUpDown, Filter, Edit2, Trash2 } from "lucide-react";
+import { useTransactions, useAccounts, useCategories, useDeleteTransaction } from "../lib/queries";
+import { useDialogStore } from "../store/useDialogStore";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -11,6 +12,19 @@ export default function Transactions() {
   const { data: transactions = [], isLoading: isTransactionsLoading } = useTransactions();
   const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
+  const deleteTransactionMutation = useDeleteTransaction();
+  const { open: openDialog } = useDialogStore();
+
+  const handleDelete = (id: number) => {
+    openDialog(
+      "confirm",
+      "Usuń operację",
+      "Czy na pewno chcesz usunąć tę operację? Pieniądze wrócą na Twoje konto bankowe/portfel. Tego działania nie można cofnąć.",
+      () => {
+        deleteTransactionMutation.mutate(id);
+      }
+    );
+  };
 
   const exportToCSV = async () => {
     try {
@@ -198,7 +212,7 @@ export default function Transactions() {
                     key={tx.id} 
                     ref={virtualizer.measureElement}
                     data-index={virtualRow.index}
-                    className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors absolute top-0 left-0 w-full"
+                    className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors absolute top-0 left-0 w-full group"
                     style={{ transform: `translateY(${virtualRow.start}px)` }}
                   >
                     <div className="flex items-center gap-4">
@@ -228,8 +242,28 @@ export default function Transactions() {
                         </div>
                       </div>
                     </div>
-                    <div className={`font-bold text-lg tracking-tight ${isExpense ? 'text-red-500' : 'text-emerald-500'}`}>
-                      {isExpense ? "-" : "+"}{privacyMode ? '***' : tx.amount.toFixed(2)} PLN
+                    <div className="flex items-center gap-3">
+                      {/* Action buttons (Edit / Delete) shown on hover */}
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 w-0 group-hover:w-[76px] overflow-hidden shrink-0">
+                        <button 
+                          onClick={() => setTransactionModalOpen(true, tx.id)}
+                          className="p-2 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors cursor-pointer shrink-0"
+                          title="Edytuj operację"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(tx.id)}
+                          className="p-2 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-colors cursor-pointer shrink-0"
+                          title="Usuń operację"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+
+                      <div className={`font-bold text-lg tracking-tight ${isExpense ? 'text-red-500' : 'text-emerald-500'} shrink-0`}>
+                        {isExpense ? "-" : "+"}{privacyMode ? '***' : tx.amount.toFixed(2)} PLN
+                      </div>
                     </div>
                   </div>
                 );

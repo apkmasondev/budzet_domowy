@@ -10,7 +10,8 @@ interface FinanceState {
 
   // Global Modals
   isTransactionModalOpen: boolean;
-  setTransactionModalOpen: (isOpen: boolean) => void;
+  editingTransactionId: number | null;
+  setTransactionModalOpen: (isOpen: boolean, editId?: number | null) => void;
   
   // Security & Privacy
   privacyMode: boolean;
@@ -38,7 +39,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   autoProcessedCount: 0,
   
   isTransactionModalOpen: false,
-  setTransactionModalOpen: (isOpen) => set({ isTransactionModalOpen: isOpen }),
+  editingTransactionId: null,
+  setTransactionModalOpen: (isOpen, editId = null) => set({ isTransactionModalOpen: isOpen, editingTransactionId: editId }),
   
   privacyMode: false,
   isUnlocked: false,

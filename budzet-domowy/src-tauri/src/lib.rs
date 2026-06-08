@@ -46,6 +46,18 @@ fn get_transactions(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::trans
 }
 
 #[tauri::command]
+fn delete_transaction(state: State<'_, Mutex<Connection>>, id: i64) -> Result<(), String> {
+    let mut conn = state.lock().unwrap();
+    db::transactions::delete_transaction(&mut conn, id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn update_transaction(state: State<'_, Mutex<Connection>>, id: i64, payload: db::transactions::UpdateTransactionPayload) -> Result<(), String> {
+    let mut conn = state.lock().unwrap();
+    db::transactions::update_transaction(&mut conn, id, payload).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn get_tags(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::tags::Tag>, String> {
     let conn = state.lock().unwrap();
     db::tags::get_all_tags(&conn).map_err(|e| e.to_string())
@@ -264,7 +276,9 @@ pub fn run() {
             factory_reset,
             create_category,
             delete_category,
-            bulk_insert_transactions
+            bulk_insert_transactions,
+            delete_transaction,
+            update_transaction
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

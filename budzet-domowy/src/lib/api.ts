@@ -12,6 +12,8 @@ export const api = {
   
   getTransactions: () => invoke<Transaction[]>("get_transactions"),
   createTransaction: (payload: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>) => invoke<number>("create_transaction", { payload }),
+  updateTransaction: (id: number, payload: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>) => invoke<void>("update_transaction", { id, payload }),
+  deleteTransaction: (id: number) => invoke<void>("delete_transaction", { id }),
   bulkInsertTransactions: (payloads: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>[]) => invoke<number>("bulk_insert_transactions", { payloads }),
 
   getTags: () => invoke<Tag[]>("get_tags"),

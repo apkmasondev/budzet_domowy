@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { useFinanceStore } from "../../store/useFinanceStore";
 import { ArrowDownRight, ArrowUpRight, AlertTriangle } from "lucide-react";
-import { useAccounts, useCategories, useAddTransaction } from "../../lib/queries";
+import { useAccounts, useCategories, useAddTransaction, useUpdateTransaction, useTransactions } from "../../lib/queries";
 
 export default function GlobalTransactionModal() {
-  const { isTransactionModalOpen, setTransactionModalOpen } = useFinanceStore();
+  const { isTransactionModalOpen, editingTransactionId, setTransactionModalOpen } = useFinanceStore();
   const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
+  const { data: transactions = [] } = useTransactions();
   const addTransactionMutation = useAddTransaction();
+  const updateTransactionMutation = useUpdateTransaction();
   const [amount, setAmount] = useState("");
   const [type, setType] = useState("expense");
   const [accountId, setAccountId] = useState("");
@@ -15,6 +17,24 @@ export default function GlobalTransactionModal() {
   const [description, setDescription] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [pendingOverdraft, setPendingOverdraft] = useState<{ amount: number, accountName: string } | null>(null);
+
+  useEffect(() => {
+    if (isTransactionModalOpen && editingTransactionId) {
+      const txToEdit = transactions.find(t => t.id === editingTransactionId);
+      if (txToEdit) {
+        setAmount(txToEdit.amount.toString());
+        setType(txToEdit.type);
+        setAccountId(txToEdit.account_id.toString());
+        setCategoryId(txToEdit.category_id?.toString() || "");
+        setDescription(txToEdit.description || "");
+        setTagsInput(txToEdit.tags ? txToEdit.tags.map(t => `#${t}`).join(" ") : "");
+      }
+    } else if (isTransactionModalOpen && !editingTransactionId) {
+      setAmount("");
+      setDescription("");
+      setTagsInput("");
+    }
+  }, [isTransactionModalOpen, editingTransactionId, transactions]);
 
   // Close on Escape when not overdrafting
   useEffect(() => {
@@ -36,16 +56,24 @@ export default function GlobalTransactionModal() {
         .map(t => t.replace(/^#/, '').trim())
         .filter(t => t.length > 0);
 
-      await addTransactionMutation.mutateAsync({
+      const payload = {
         account_id: parseInt(accountId),
         category_id: parseInt(categoryId),
         amount: parsedAmount,
         type: type,
         description: description || undefined,
-        date: new Date().toISOString().split('T')[0],
+        date: new Date().toISOString().split('T')[0], // We keep current date for new ones, but for edit we should probably preserve old date!
         transfer_to_id: undefined,
         tags: parsedTags.length > 0 ? parsedTags : undefined
-      });
+      };
+
+      if (editingTransactionId) {
+        const txToEdit = transactions.find(t => t.id === editingTransactionId);
+        if (txToEdit) payload.date = txToEdit.date; // Preserve old date
+        await updateTransactionMutation.mutateAsync({ id: editingTransactionId, payload });
+      } else {
+        await addTransactionMutation.mutateAsync(payload);
+      }
       setTransactionModalOpen(false);
       setAmount("");
       setDescription("");
@@ -75,7 +103,7 @@ export default function GlobalTransactionModal() {
     <>
       <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/70 p-4" onClick={() => setTransactionModalOpen(false)}>
         <div className="bg-[var(--color-card)] border border-border/50 p-8 rounded-2xl shadow-2xl shadow-primary/5 w-full max-w-md animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-          <h2 className="text-2xl font-bold mb-6 tracking-tight text-foreground">Szybka operacja</h2>
+          <h2 className="text-2xl font-bold mb-6 tracking-tight text-foreground">{editingTransactionId ? "Edytuj operację" : "Szybka operacja"}</h2>
           <form onSubmit={handleCreate} className="flex flex-col gap-5">
             
             {/* Segmented Control */}
@@ -131,7 +159,7 @@ export default function GlobalTransactionModal() {
 
             <div className="flex justify-end gap-3 mt-4">
               <button type="button" onClick={() => setTransactionModalOpen(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Anuluj</button>
-              <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90">Zapisz</button>
+              <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90">{editingTransactionId ? "Zaktualizuj" : "Zapisz"}</button>
             </div>
           </form>
         </div>

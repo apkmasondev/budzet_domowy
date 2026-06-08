@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from "react";
 import Papa from "papaparse";
-import { useAccounts, useTransactions, useBulkAddTransactions } from "../lib/queries";
+import { useAccounts, useTransactions, useBulkAddTransactions, useCategories } from "../lib/queries";
 import { FileUp, CheckCircle, AlertTriangle, ArrowRight, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -8,6 +8,7 @@ export default function Import() {
   const navigate = useNavigate();
   const { data: accounts = [] } = useAccounts();
   const { data: transactions = [] } = useTransactions();
+  const { data: categories = [] } = useCategories();
   const bulkAddMutation = useBulkAddTransactions();
 
   const [file, setFile] = useState<File | null>(null);
@@ -18,10 +19,15 @@ export default function Import() {
   const [dateColumn, setDateColumn] = useState<string>("");
   const [amountColumn, setAmountColumn] = useState<string>("");
   const [descColumn, setDescColumn] = useState<string>("");
+  const [catColumn, setCatColumn] = useState<string>("");
   
   const [isDragging, setIsDragging] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<{success: number, total: number} | null>(null);
+  const [step, setStep] = useState<1 | 2 | 3>(1); // 1: drop, 2: map cols, 3: map categories
+  
+  const [uniqueBankCategories, setUniqueBankCategories] = useState<string[]>([]);
+  const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -69,10 +75,14 @@ export default function Import() {
             const dateGuess = cols.find(c => c.toLowerCase().includes("data") || c.toLowerCase().includes("date"));
             const amountGuess = cols.find(c => c.toLowerCase().includes("kwota") || c.toLowerCase().includes("amount") || c.toLowerCase().includes("saldo"));
             const descGuess = cols.find(c => c.toLowerCase().includes("tytuł") || c.toLowerCase().includes("opis") || c.toLowerCase().includes("title") || c.toLowerCase().includes("description"));
+            const catGuess = cols.find(c => c.toLowerCase().includes("kategoria") || c.toLowerCase().includes("category") || c.toLowerCase().includes("typ"));
             
             if (dateGuess) setDateColumn(dateGuess);
             if (amountGuess) setAmountColumn(amountGuess);
             if (descGuess) setDescColumn(descGuess);
+            if (catGuess) setCatColumn(catGuess);
+            
+            setStep(2);
           }
         }
       });
@@ -144,6 +154,54 @@ export default function Import() {
     return new Date().toISOString().split('T')[0]; // fallback
   };
 
+  const handlePrepareCategories = () => {
+    if (!accountId || !dateColumn || !amountColumn || !descColumn) return;
+    
+    if (catColumn) {
+      const uniqueCats = new Set<string>();
+      csvData.forEach(row => {
+        const catVal = row[catColumn];
+        if (catVal && catVal.trim()) uniqueCats.add(catVal.trim());
+      });
+      const uniqueCatsArr = Array.from(uniqueCats).sort();
+      setUniqueBankCategories(uniqueCatsArr);
+
+      // Algorytm propozycji przypisania
+      const initialMap: Record<string, string> = {};
+      uniqueCatsArr.forEach(bankCat => {
+        const lowerCat = bankCat.toLowerCase();
+        let match = categories.find(c => lowerCat.includes(c.name.toLowerCase()));
+        
+        if (!match) {
+           if (lowerCat.includes("jedzenie") || lowerCat.includes("restaurac") || lowerCat.includes("kawiarn")) {
+              match = categories.find(c => c.name.toLowerCase().includes("restauracje"));
+           } else if (lowerCat.includes("zakupy") || lowerCat.includes("market") || lowerCat.includes("spożyw")) {
+              match = categories.find(c => c.name.toLowerCase().includes("zakupy") || c.name.toLowerCase().includes("jedzenie"));
+           } else if (lowerCat.includes("elektronika") || lowerCat.includes("rtv") || lowerCat.includes("agd")) {
+              match = categories.find(c => c.name.toLowerCase().includes("elektronika"));
+           } else if (lowerCat.includes("sport") || lowerCat.includes("fitness") || lowerCat.includes("karnet") || lowerCat.includes("basen")) {
+              match = categories.find(c => c.name.toLowerCase().includes("sport"));
+           } else if (lowerCat.includes("zdrowie") || lowerCat.includes("apteka") || lowerCat.includes("leki") || lowerCat.includes("lekarz")) {
+              match = categories.find(c => c.name.toLowerCase().includes("zdrowie"));
+           } else if (lowerCat.includes("transport") || lowerCat.includes("paliwo") || lowerCat.includes("orlen") || lowerCat.includes("bilet") || lowerCat.includes("auto")) {
+              match = categories.find(c => c.name.toLowerCase().includes("transport"));
+           } else if (lowerCat.includes("dom") || lowerCat.includes("rachunki") || lowerCat.includes("prąd") || lowerCat.includes("czynsz")) {
+              match = categories.find(c => c.name.toLowerCase().includes("rachunki") || c.name.toLowerCase().includes("dom"));
+           }
+        }
+
+        if (match) {
+          initialMap[bankCat] = match.id.toString();
+        }
+      });
+      setCategoryMap(initialMap);
+
+      setStep(3);
+    } else {
+      handleImport(); // Skip step 3 if no category column selected
+    }
+  };
+
   const handleImport = async () => {
     if (!accountId || !dateColumn || !amountColumn || !descColumn) return;
     
@@ -157,7 +215,19 @@ export default function Import() {
       
       const rawDesc = (row[descColumn] as string) || "Brak tytułu";
       const desc = rawDesc.trim();
-      const catId = categoryLookup.get(desc.toLowerCase());
+      
+      let catId: number | undefined = undefined;
+      
+      if (catColumn && row[catColumn]) {
+         const bankCat = row[catColumn].trim();
+         const mappedCatId = categoryMap[bankCat];
+         if (mappedCatId) catId = parseInt(mappedCatId);
+      }
+      
+      // Fallback do historyLookup jeśli nie zmapowano z banku
+      if (!catId) {
+        catId = categoryLookup.get(desc.toLowerCase());
+      }
 
       return {
         account_id: parseInt(accountId),
@@ -211,7 +281,7 @@ export default function Import() {
         <p className="text-muted-foreground">Wgraj wyciąg bankowy, wskaż odpowiednie kolumny, a my zaimportujemy wszystkie transakcje.</p>
       </div>
 
-      {!file ? (
+      {step === 1 && !file ? (
         <div 
           className={`border-2 border-dashed rounded-3xl p-16 text-center transition-all duration-300 flex flex-col items-center justify-center min-h-[400px] cursor-pointer
             ${isDragging ? 'border-primary bg-primary/5 scale-[1.02]' : 'border-border hover:border-primary/50 hover:bg-muted/30'}`}
@@ -230,7 +300,7 @@ export default function Import() {
             lub kliknij, aby wybrać plik z komputera. Aplikacja automatycznie dopasuje waluty, usunie zbędne znaki i spróbuje przypisać kategorie.
           </p>
         </div>
-      ) : (
+      ) : step === 2 ? (
         <div className="space-y-8">
           <div className="bg-card border border-border/80 rounded-2xl p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-6 pb-6 border-b border-border/50">
@@ -238,7 +308,7 @@ export default function Import() {
               <h2 className="text-xl font-bold">Zmapuj Kolumny</h2>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-bold text-foreground">Konto Docelowe</label>
                 <select 
@@ -251,7 +321,7 @@ export default function Import() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-bold text-foreground">Kolumna z Datą</label>
+                <label className="text-sm font-bold text-foreground">Data</label>
                 <select 
                   className="bg-background border border-border rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/50"
                   value={dateColumn} onChange={e => setDateColumn(e.target.value)}
@@ -262,7 +332,7 @@ export default function Import() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-bold text-foreground">Kolumna z Kwotą</label>
+                <label className="text-sm font-bold text-foreground">Kwota</label>
                 <select 
                   className="bg-background border border-border rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/50"
                   value={amountColumn} onChange={e => setAmountColumn(e.target.value)}
@@ -273,12 +343,23 @@ export default function Import() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-bold text-foreground">Kolumna z Tytułem</label>
+                <label className="text-sm font-bold text-foreground">Tytuł</label>
                 <select 
                   className="bg-background border border-border rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/50"
                   value={descColumn} onChange={e => setDescColumn(e.target.value)}
                 >
                   <option value="">Wybierz...</option>
+                  {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-bold text-foreground">Kategoria</label>
+                <select 
+                  className="bg-background border border-border rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/50"
+                  value={catColumn} onChange={e => setCatColumn(e.target.value)}
+                >
+                  <option value="">Brak kolumny</option>
                   {headers.map(h => <option key={h} value={h}>{h}</option>)}
                 </select>
               </div>
@@ -297,6 +378,7 @@ export default function Import() {
                           ${h === dateColumn ? 'bg-primary/10 text-primary' : ''}
                           ${h === amountColumn ? 'bg-primary/10 text-primary' : ''}
                           ${h === descColumn ? 'bg-primary/10 text-primary' : ''}
+                          ${h === catColumn ? 'bg-primary/10 text-primary' : ''}
                         `}>
                           {h}
                         </th>
@@ -328,16 +410,59 @@ export default function Import() {
               </p>
             </div>
             <button
-              onClick={handleImport}
+              onClick={handlePrepareCategories}
               disabled={isImporting || !accountId || !dateColumn || !amountColumn || !descColumn}
               className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
             >
-              {isImporting ? "Importowanie..." : "Rozpocznij Import"}
-              {!isImporting && <ArrowRight size={20} />}
+              Dalej <ArrowRight size={20} />
             </button>
           </div>
         </div>
-      )}
+      ) : step === 3 ? (
+        <div className="space-y-6">
+          <div className="bg-card border border-border/80 rounded-2xl p-6 shadow-sm">
+            <h2 className="text-xl font-bold mb-6">Zmapuj Kategorie Bankowe</h2>
+            <p className="text-sm text-muted-foreground mb-6">Poniżej znajdują się wszystkie unikalne kategorie wykryte w Twoim wyciągu. Przypisz je do swoich kategorii z Domowego Budżetu, aby zachować porządek od razu podczas importu.</p>
+            
+            <div className="space-y-4">
+              {uniqueBankCategories.map(bankCat => (
+                <div key={bankCat} className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border border-border rounded-xl bg-muted/20 hover:bg-muted/40 transition-colors">
+                  <div className="font-medium text-foreground">{bankCat}</div>
+                  <select 
+                    className="w-full sm:w-64 bg-background border border-border rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    value={categoryMap[bankCat] || ""}
+                    onChange={e => setCategoryMap(prev => ({ ...prev, [bankCat]: e.target.value }))}
+                  >
+                    <option value="" className="bg-background text-foreground">Automatycznie / Inne</option>
+                    {categories.map(c => <option key={c.id} value={c.id} className="bg-background text-foreground">{c.name}</option>)}
+                  </select>
+                </div>
+              ))}
+              {uniqueBankCategories.length === 0 && (
+                <p className="text-muted-foreground text-center py-4">Nie wykryto żadnych kategorii bankowych w pliku.</p>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex justify-between items-center bg-muted/30 p-6 rounded-2xl border border-border/50">
+            <button
+              onClick={() => setStep(2)}
+              disabled={isImporting}
+              className="px-6 py-3 rounded-xl font-bold hover:bg-muted transition-colors"
+            >
+              Wróć
+            </button>
+            <button
+              onClick={handleImport}
+              disabled={isImporting}
+              className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
+            >
+              {isImporting ? "Importowanie..." : "Zatwierdź i Importuj"}
+              {!isImporting && <CheckCircle size={20} />}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
