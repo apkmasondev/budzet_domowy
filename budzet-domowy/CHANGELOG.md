@@ -2,6 +2,33 @@
 
 Wszystkie znaczące zmiany w tym projekcie będą dokumentowane w tym pliku.
 
+## [2.0.0]
+
+- **Interaktywna Analityka**: Wykres kołowy wydatków na Dashboardzie jest teraz w pełni interaktywny. Kliknięcie w segment wybranej kategorii przenosi bezpośrednio do przefiltrowanej historii transakcji dla tej właśnie kategorii.
+- **Interaktywny Cash-Flow**: Wykres słupkowy przychodów i wydatków (Cash-Flow) zyskał wsparcie dla nawigacji. Kliknięcie na wybrany słupek (np. wydatków w czerwcu 2026) automatycznie przekierowuje do zakładki transakcji z włączonymi, odpowiednimi filtrami.
+- **Szybki Podgląd Kont (Quick View)**: W zakładce "Konta i Portfele" wystarczy kliknąć dowolną kartę konta, aby wywołać błyskawiczny podgląd 10 ostatnich transakcji przypisanych do tego konta w formie eleganckiego modala.
+- **Inteligentne Tagi (Autocomplete)**: W globalnym formularzu szybkiej transakcji dodano asystenta podpowiadającego używane już tagi. Wystarczy wpisać znak `#`, a ukaże się podręczna, interaktywna lista dotychczasowych hashtagów gotowych do kliknięcia.
+- **Focus Trap & Dostępność (A11y)**: Zaimplementowano ulepszone zarządzanie focusem w modalach. Okna operacji wspierają teraz szybkie i bezpieczne zamykanie za pomocą klawisza `Escape` oraz dbają o zatrzymanie nawigacji klawiszowej wewnątrz formularza. Dodatkowo koryguje to bug związany z ujemnym saldem (overdraft warning jest nadrzędny).
+- **UX Fix (Dashboard)**: Kafelek "Do rozdysponowania" na pulpicie głównym prawidłowo przekierowuje teraz do zakładki Budżetów zamiast Celów. Kafelki "Przychody" oraz "Wydatki" filtrują operacje po kliknięciu.
+- **Rozszerzone Filtrowanie i Sortowanie z Custom UX**: Zastąpiono systemowe listy `<select>` w transakcjach estetycznymi dropdownami. Wyeliminowano przezroczystość/nakładanie się (w pełni nieprzezroczyste tła i precyzyjne warstwy z-index). Daty wyświetlane są w formacie przyjaznym użytkownikowi (np. "Czerwiec 2026"). Dodano szybki przycisk czyszczenia aktywnych filtrów, a etykietę "Wszystkie okresy" zoptymalizowano do "ALL" wraz z delikatnym zwężeniem pola wyszukiwarki oraz przycisku filtra.
+- **Sprytny Eksport**: Opcja "Eksportuj CSV" zaciąga teraz odfiltrowany zakres transakcji na ekranie, umożliwiając eksport konkretnych miesięcy, a nie całej bazy danych bez wyjątku.
+- **Usprawnienia Modala Transakcji**: Globalny modal zyskał pełną obsługę typu "Przelew" wraz z dynamicznym ukrywaniem wymogu przypisania kategorii (przelewy i wpłaty na cele nie potrzebują kategorii). Dodano również inline'owy, błyskawiczny skrót tworzenia nowej kategorii (`+ Nowa kategoria`) podczas wpisywania wydatków.
+- **Status Subskrypcji**: Dodano wizualne wskaźniki opłacenia subskrypcji w bieżącym miesiącu. Na Dashboardzie widoczny jest licznik zaksięgowanych zleceń cyklicznych, a w widoku subskrypcji każda karta posiada teraz dedykowany status "Zaksięgowano" lub "Oczekuje".
+- **Sortowanie Budżetów i Przyklejone Nagłówki**: Wprowadzono pełne interaktywne sortowanie tabeli budżetowej (alfabetycznie po nazwie kategorii oraz po dowolnych kwotach). Dodatkowo nagłówki tabeli zostały przypięte (`sticky thead`), dzięki czemu nie znikają podczas scrollowania listy.
+- **Wizualna Nagroda za Cele**: Skarbonki, które osiągnęły 100% celu oszczędnościowego, zyskują teraz estetyczny złoty motyw (ramkę o ciepłym odcieniu, ikonę trofeum, odznakę "Sukces! 🏆" oraz złoty przycisk z ikoną pucharu). Poprawiono kontrast złotych elementów w trybie jasnym.
+- **Interaktywność Ostatnich Transakcji**: Kliknięcie w dowolny wiersz na liście ostatnich transakcji na Dashboardzie przenosi teraz bezpośrednio do historii transakcji z automatycznie włączonym wyszukiwaniem po opisie lub kategorii.
+- **Edycja Kategorii**: Dodano pełne wsparcie dla edytowania istniejących już kategorii w Ustawieniach (zmiana nazwy, typu i koloru etykiety) wraz z zapisem w bazie danych SQLite i reaktywnym odświeżaniem widoku w całej aplikacji.
+- **Kontrast i UX Raportów**: Zwiększono kontrast przycisków okresu (1M, 3M itp.) w trybie ciemnym oraz poprawiono widoczność filtrów kont, wprowadzając kontrastujące tła dla zaznaczonych i nieaktywnych filtrów.
+- **Poprawki Tabeli Budżetów**: Zlikwidowano prześwitywanie wierszy pod nagłówkiem (dodano `border-collapse`, twarde tło na `thead`/`tr` i `th` z `var(--color-card)`) oraz wprowadzono dynamiczną wysokość listy dopasowaną do wysokości ekranu (`max-h-[calc(100vh-340px)]`), co optymalizuje przestrzeń na dużych i małych monitorach.
+
+## [1.0.6]
+
+- **Pełna Optymalizacja ZBB (Zero-Based Budgeting)**: Główny mechanizm obliczania dostępnych środków został przepisany i przeniesiony do szybkiego środowiska Rust, poprawiając płynność w zakładce Budżet.
+- **Paginacja Historii Transakcji**: Zakładka Transakcje obsługuje teraz paginację, dzięki czemu ładowanie tysięcy operacji stało się błyskawiczne (nawet na starszym sprzęcie) a przewijanie jest niezwykle płynne dzięki `InfiniteQuery` na froncie.
+- **Rozszerzenie Zasięgu ID (i64)**: Bezpieczeństwo identyfikatorów zostało zwiększone ze standardowego 32-bitowego Integera na `i64` w kluczowych tabelach SQLite (Tagi, Transakcje, Cykliczne Operacje, Konta), zabezpieczając przed limitami i problemami ze złączeniami w skali długoterminowej.
+- **Polerowanie UX**: Usunięto niepożądane pionowe paski przewijania z boku okna poprawiając styl tagu głównego (`overflow-x-hidden`).
+- **Poprawa Widoczności i Interakcji Ikon Edycji**: Skorygowano zachowanie ikon szybkiej edycji/usuwania w historii transakcji – wyłączono efekt powiększania (`hover:scale-110`), aby zapobiec ucinaniu ich krawędzi, oraz zmieniono kolor podświetlenia w trybie jasnym na ciemniejszy grafit (`hover:bg-slate-800 hover:text-slate-100`). Wprowadzono także brakujące, dynamiczne animacje podświetleń i powiększenia (`hover:scale-110`) dla ikon na kartach Kont i Portfeli, ujednolicając doznania wizualne w całej aplikacji.
+
 ## [1.0.5]
 
 - **Pełna Edycja Elementów**: Wprowadzono możliwość edytowania już istniejących Kont, Portfeli, Celów oszczędnościowych oraz Płatności Cyklicznych (Subskrypcji). Modale edycji ładują aktualne dane pozwalając na szybką korektę sald i parametrów.

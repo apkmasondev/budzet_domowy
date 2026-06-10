@@ -70,21 +70,49 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     const savedPin = await api.getSetting("app_pin");
     if (!savedPin) return false;
 
+    const savedSalt = await api.getSetting("app_pin_salt");
     const encoder = new TextEncoder();
-    const data = encoder.encode(pin);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashedPin = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    let isMatch = false;
 
-    if (savedPin === hashedPin) {
-      set({ isUnlocked: true });
-      get().fetchData(true); // Load data after unlock
-      return true;
+    if (savedSalt) {
+      const data = encoder.encode(savedSalt + pin);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashedPin = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      if (savedPin === hashedPin) {
+        set({ isUnlocked: true });
+        get().fetchData(true);
+        return true;
+      }
     }
 
-    // Migracja wsteczna: jesli savedPin jest równy wpisanemu hasłu w plaintext, migruj do hasha
+    const legacyData = encoder.encode(pin);
+    const legacyHashBuffer = await crypto.subtle.digest('SHA-256', legacyData);
+    const legacyHashArray = Array.from(new Uint8Array(legacyHashBuffer));
+    const legacyHashedPin = legacyHashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    if (savedPin === legacyHashedPin) {
+      isMatch = true;
+    }
+
     if (savedPin === pin) {
-      await api.setSetting("app_pin", hashedPin);
+      isMatch = true;
+    }
+
+    if (isMatch) {
+      const randomValues = crypto.getRandomValues(new Uint8Array(16));
+      const saltArray = Array.from(randomValues);
+      const newSalt = saltArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      const dataToHash = encoder.encode(newSalt + pin);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', dataToHash);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const newHashedPin = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      await api.setSetting("app_pin_salt", newSalt);
+      await api.setSetting("app_pin", newHashedPin);
+
       set({ isUnlocked: true });
       get().fetchData(true);
       return true;
@@ -95,17 +123,23 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
   setupPin: async (pin) => {
     const encoder = new TextEncoder();
-    const data = encoder.encode(pin);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const randomValues = crypto.getRandomValues(new Uint8Array(16));
+    const saltArray = Array.from(randomValues);
+    const newSalt = saltArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      
+    const dataToHash = encoder.encode(newSalt + pin);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dataToHash);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashedPin = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
+    
+    await api.setSetting("app_pin_salt", newSalt);
     await api.setSetting("app_pin", hashedPin);
     set({ hasPin: true, isUnlocked: true });
   },
 
   removePin: async () => {
     await api.setSetting("app_pin", "");
+    await api.setSetting("app_pin_salt", "");
     set({ hasPin: false });
   },
 

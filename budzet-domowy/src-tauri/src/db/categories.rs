@@ -95,6 +95,14 @@ pub fn create_category(conn: &Connection, name: &str, type_: &str, color: Option
     Ok(conn.last_insert_rowid())
 }
 
+pub fn update_category(conn: &Connection, id: i64, name: &str, type_: &str, color: Option<&str>) -> Result<()> {
+    conn.execute(
+        "UPDATE categories SET name = ?1, type = ?2, color = ?3 WHERE id = ?4",
+        rusqlite::params![name, type_, color, id],
+    )?;
+    Ok(())
+}
+
 pub fn delete_category(conn: &Connection, id: i64) -> Result<()> {
     // Delete transactions associated with this category or set them to NULL.
     // For safety, let's set them to NULL so we don't lose transaction history!

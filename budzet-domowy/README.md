@@ -45,7 +45,7 @@ Nowoczesna i szybka aplikacja desktopowa do zarządzania finansami osobistymi, s
 - **Faza 14 (Architektura v2 & React Query):** Wymiana serca aplikacji – usunięcie starych wywołań wewnątrz `useEffect` i wdrożenie profesjonalnej biblioteki `@tanstack/react-query`. Oddzielenie warstwy komunikacji (API) od komponentów, automatyczna inwalidacja zapytań (cache) oraz dodanie testów jednostkowych w języku Rust operujących na izolowanej od dysku, in-memory bazie danych SQLite, co zapewnia w 100% stabilne CI/CD i potężny fundament pod kolejne funkcje w v2.
 - **Faza 15 (Migracje Bazy i Tagi):** Zastąpiono sztywny skrypt `schema.sql` solidnym systemem kaskadowych, twardych migracji (`rusqlite_migration`). Ochroni to użytkowników przed utratą danych podczas większych aktualizacji. Rozbudowano transakcje o wielowymiarowy i zoptymalizowany system relacyjnych Tagów (`#Hashtagi`) wyposażony we własne algorytmy szybkiego wyszukiwania.
 
-## Wersja 1.0.5 - Roadmapa i Nowości
+## Wersja 2.0.0 - Wersja Stabilna
 
 Rozpoczęto wdrażanie potężnej architektonicznej aktualizacji. Do tej pory ukończono:
 
@@ -58,9 +58,19 @@ Rozpoczęto wdrażanie potężnej architektonicznej aktualizacji. Do tej pory uk
 - [x] Nowy, Twitterowy system Tagów (`#hashtagów`) krzyżowych dla poszczególnych transakcji zintegrowany z potężną wyszukiwarką.
 - [x] Faza 16: Zero-Based Budgeting (ZBB) - Metoda Kopertowa. Globalny wskaźnik do rozdysponowania, automatyczne "carry-over" niewykorzystanych środków oraz surowe wymuszanie pokrycia przekroczeń. Płynne wejścia inline bezpośrednio w tabelach oraz dopracowany UX.
 - [x] Faza 17: Pasywne wykrywanie subskrypcji - algorytm śledzący historię wydatków pod kątem cykliczności i sugerujący ich zautomatyzowanie.
+- [x] Faza 18: Ostateczne szlify UX (Premium UI) - Glassmorphism w dropdownach filtrów, naprawione błędy z edycją przelewów, pełna interaktywność klikalna na wykresach Cash-Flow i raportach.
 - [x] Faza 17: Inteligentny import ze zrzutami bankowymi (CSV). Silnik uniwersalnego mapowania kolumn i interaktywne okno kategoryzacji transakcji z banku "w locie" wraz z algorytmem pre-kategoryzacji z historii wydatków. Wbudowany parser PapaParse eliminuje potrzebę własnego serwera.
 - [x] Błyskawiczna edycja i usuwanie transakcji (Inline Action Buttons) zintegrowane w wierszach tabel z płynnym wysuwaniem po lewej stronie kwoty (kwota pozostaje cały czas widoczna), zintegrowane z przeliczaniem sald na zapleczu (Rust).
 - [x] Faza 18: Zaawansowane Raportowanie (Roczne Cash-flow), 3 zaawansowane wykresy (Recharts) do analityki finansowej. Filtry responsywne na małych oknach.
+
+- [x] Paginacja backendowa historii transakcji i migracja na InfiniteQuery w React.
+- [x] Całkowite przepisanie logiki ZBB na szybki backend Rust z nową strukturą.
+- [x] Migracja wszystkich ID z i32 na i64 zabezpieczająca bazę SQLite.
+- [x] UX Polish: Usunięcie poziomych pasków przewijania, ujednolicone i poprawione ikony edycji/usuwania (w tym usunięcie obcinania w historii i dopasowanie podświetlenia dla trybu jasnego) oraz animacje kart w Kontach.
+- [x] Faza 19 (Interaktywność): Klikalne, w pełni interaktywne wykresy kołowe na Dashboardzie z przekierowaniem, Podgląd Szybkich Transakcji po kliknięciu kart na Kontach i Portfelach. Kafelki "Przychody" oraz "Wydatki" automatycznie przypisujące rodzaj filtra w tabeli wpisów.
+- [x] Focus Trap w globalnych modalach, pełna zdatność klawiatury (`Escape`), moduł Autouzupełniania Tagów (Hashtagów) z "w-locie" listą podpowiedzi oraz interaktywne tagi w historii potrafiące aktywować globalne filtrowanie po kliknięciu.
+- [x] Filtr 1M w zaawansowanej analityce ułatwiający rozeznanie się w budżecie w cyklu miesięcznym. Pasek wyszukiwania transakcji doposażony w super-szybkie filtrowanie po dacie. Zmiana nazewnictwa "Wszystkie/Wszystkie okresy" na "ALL" w Raportach oraz Transakcjach w celu oszczędności miejsca. Inteligentny Eksport CSV oparty na przefiltrowanym widoku.
+- [x] Wskaźniki opłacenia subskrypcji w bieżącym miesiącu na Dashboardzie i liście zleceń. Interaktywne sortowanie kolumn (alfabetycznie oraz po kwotach) i przyklejona belka nagłówków (sticky head) w Budżetach. Złoty motyw wizualny z podwyższonym kontrastem w trybie jasnym, ikona trofeum i odznaka sukcesu dla zrealizowanych celów oszczędnościowych. Klikalność ostatnich transakcji na Dashboardzie przenosząca do historii transakcji z autofiltrem. Pełna edycja i personalizacja istniejących kategorii w Ustawieniach. Poprawiony kontrast filtrów zakresu dat i kont w sekcji Raporty (tryb ciemny). Zoptymalizowana tabela budżetowa: brak prześwitywania wierszy pod nagłówkiem (dzięki border-collapse i solidnemu bg-card na thead/tr/th) oraz dynamicznie dostosowywana wysokość listy (max-h-[calc(100vh-340px)]) dla pełnego wykorzystania ekranu.
 
 Wszystkie cele projektowe w tym wydaniu zostały zrealizowane! 🎉
 

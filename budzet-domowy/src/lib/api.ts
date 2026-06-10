@@ -9,9 +9,12 @@ export const api = {
   
   getCategories: () => invoke<Category[]>("get_categories"),
   createCategory: (name: string, type: string, color?: string) => invoke<number>("create_category", { name, type, color }),
+  updateCategory: (id: number, name: string, type: string, color?: string) => invoke<void>("update_category", { id, name, type, color }),
   deleteCategory: (id: number) => invoke<void>("delete_category", { id }),
   
-  getTransactions: () => invoke<Transaction[]>("get_transactions"),
+  getTransactions: (limit: number, offset: number) => invoke<Transaction[]>("get_transactions", { limit, offset }),
+  getAllTransactions: () => invoke<Transaction[]>("get_all_transactions"),
+  getTransactionsCount: () => invoke<number>("get_transactions_count"),
   createTransaction: (payload: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>) => invoke<number>("create_transaction", { payload }),
   updateTransaction: (id: number, payload: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>) => invoke<void>("update_transaction", { id, payload }),
   deleteTransaction: (id: number) => invoke<void>("delete_transaction", { id }),
@@ -23,6 +26,8 @@ export const api = {
   getAllBudgets: () => invoke<Budget[]>("get_all_budgets"),
   upsertBudget: (payload: { category_id: number; month: string; amount: number }) => invoke<void>("upsert_budget", { payload }),
   copyBudgetsToMonth: (fromMonth: string, toMonth: string) => invoke<void>("copy_budgets_to_month", { fromMonth, toMonth }),
+  getBudgetStates: (month: string) => invoke<any[]>("get_budget_states", { month }),
+  getReadyToAssign: () => invoke<number>("get_ready_to_assign"),
 
   getGoals: () => invoke<Goal[]>("get_goals"),
   createGoal: (payload: Omit<Goal, 'id' | 'current_amount' | 'created_at'>) => invoke<number>("create_goal", { payload }),

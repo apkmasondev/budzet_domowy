@@ -11,7 +11,7 @@ pub mod recurring;
 pub mod settings;
 pub mod migrations;
 pub mod tags;
-
+pub mod zbb;
 pub fn init_db(app_dir: PathBuf) -> Result<Connection> {
     // Ensure the app directory exists
     if !app_dir.exists() {

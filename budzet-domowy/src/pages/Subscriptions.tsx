@@ -170,13 +170,13 @@ export default function Subscriptions() {
                 <div className="flex gap-1">
                     <button 
                       onClick={() => openEditModal(rec)}
-                      className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                      className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 hover:scale-110 rounded-lg transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
                     >
                       <Pencil size={18} />
                     </button>
                     <button 
                       onClick={() => showConfirm("Usuwanie subskrypcji", `Czy na pewno chcesz usunąć stałą opłatę "${rec.name}"?`, () => deleteRecurringMutation.mutate(rec.id))}
-                      className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 print:hidden"
+                      className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 hover:scale-110 rounded-lg transition-all opacity-0 group-hover:opacity-100 cursor-pointer print:hidden"
                     >
                       <Trash2 size={18} />
                     </button>
@@ -184,7 +184,22 @@ export default function Subscriptions() {
               </div>
               
               <h3 className="font-bold text-xl mb-1">{rec.name}</h3>
-              <p className="text-2xl font-black mb-4">{rec.amount.toFixed(2)} PLN</p>
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
+                <p className="text-2xl font-black">{rec.amount.toFixed(2)} PLN</p>
+                {(() => {
+                  const currentMonth = new Date().toISOString().substring(0, 7);
+                  const isPaidThisMonth = rec.next_date.substring(0, 7) > currentMonth;
+                  return isPaidThisMonth ? (
+                    <span className="text-[10px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      Zaksięgowano
+                    </span>
+                  ) : (
+                    <span className="text-[10px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-full bg-zinc-500/10 text-muted-foreground border border-border">
+                      Oczekuje
+                    </span>
+                  );
+                })()}
+              </div>
               
               <div className="space-y-2 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">

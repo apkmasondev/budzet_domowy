@@ -1,13 +1,13 @@
 import { useState, useRef, useMemo } from "react";
 import Papa from "papaparse";
-import { useAccounts, useTransactions, useBulkAddTransactions, useCategories } from "../lib/queries";
+import { useAccounts, useAllTransactions, useBulkAddTransactions, useCategories } from "../lib/queries";
 import { FileUp, CheckCircle, AlertTriangle, ArrowRight, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function Import() {
   const navigate = useNavigate();
   const { data: accounts = [] } = useAccounts();
-  const { data: transactions = [] } = useTransactions();
+  const { data: transactions = [] } = useAllTransactions();
   const { data: categories = [] } = useCategories();
   const bulkAddMutation = useBulkAddTransactions();
 

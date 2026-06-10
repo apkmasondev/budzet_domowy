@@ -1,15 +1,28 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useFinanceStore } from "../store/useFinanceStore";
-import { Plus, ArrowDownRight, ArrowUpRight, Search, Download, ArrowUpDown, Filter, Edit2, Trash2 } from "lucide-react";
-import { useTransactions, useAccounts, useCategories, useDeleteTransaction } from "../lib/queries";
+import { Plus, ArrowDownRight, ArrowUpRight, Search, Download, ArrowUpDown, Filter, Edit2, Trash2, Calendar, X } from "lucide-react";
+import { useTransactions, useAllTransactions, useAccounts, useCategories, useDeleteTransaction } from "../lib/queries";
 import { useDialogStore } from "../store/useDialogStore";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useSearchParams } from "react-router-dom";
+import { useClickOutside } from "../hooks/useClickOutside";
+
+const formatMonthLabel = (monthStr: string) => {
+  if (!monthStr) return "ALL";
+  const [year, month] = monthStr.split("-");
+  const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+  const formatter = new Intl.DateTimeFormat("pl-PL", { month: "long", year: "numeric" });
+  const formatted = formatter.format(date);
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+};
 
 export default function Transactions() {
   const { privacyMode, setTransactionModalOpen } = useFinanceStore();
-  const { data: transactions = [], isLoading: isTransactionsLoading } = useTransactions();
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading: isTransactionsLoading } = useTransactions();
+  const { data: allTransactions = [] } = useAllTransactions();
+  const transactions = useMemo(() => data ? data.pages.flat() : [], [data]);
   const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
   const deleteTransactionMutation = useDeleteTransaction();
@@ -28,7 +41,7 @@ export default function Transactions() {
   const exportToCSV = async () => {
     try {
       const header = "Data,Typ,Opis,Kategoria,Konto,Kwota\n";
-      const rows = transactions.map(tx => {
+      const rows = filteredAndSorted.map(tx => {
         const isExpense = tx.type === "expense";
         const cat = categories.find(c => c.id === tx.category_id);
         const acc = accounts.find(a => a.id === tx.account_id);
@@ -63,9 +76,28 @@ export default function Transactions() {
     }
   };
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState<"all" | "expense" | "income">("all");
+  const [searchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
+  const [filterType, setFilterType] = useState<"all" | "expense" | "income">((searchParams.get("type") as any) || "all");
   const [sortBy, setSortBy] = useState<"date_desc" | "date_asc" | "amount_desc" | "amount_asc">("date_desc");
+  const [filterMonth, setFilterMonth] = useState<string>(searchParams.get("month") || "");
+
+  const [isMonthOpen, setIsMonthOpen] = useState(false);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  
+  const monthRef = useRef<HTMLDivElement>(null);
+  const sortRef = useRef<HTMLDivElement>(null);
+  
+  useClickOutside(monthRef, () => setIsMonthOpen(false));
+  useClickOutside(sortRef, () => setIsSortOpen(false));
+
+  const availableMonths = useMemo(() => {
+    const months = new Set<string>();
+    allTransactions.forEach(tx => {
+      months.add(tx.date.substring(0, 7)); // YYYY-MM
+    });
+    return Array.from(months).sort().reverse();
+  }, [allTransactions]);
 
   const filteredAndSorted = useMemo(() => {
     let result = [...transactions];
@@ -73,6 +105,11 @@ export default function Transactions() {
     // Typ
     if (filterType !== "all") {
       result = result.filter(tx => tx.type === filterType);
+    }
+
+    // Miesiąc
+    if (filterMonth !== "") {
+      result = result.filter(tx => tx.date.startsWith(filterMonth));
     }
 
     // Wyszukiwanie
@@ -118,7 +155,16 @@ export default function Transactions() {
     });
 
     return result;
-  }, [transactions, searchTerm, filterType, sortBy, categories]);
+  }, [transactions, searchTerm, filterType, sortBy, categories, filterMonth]);
+
+  const hasActiveFilters = filterMonth !== "" || searchTerm.trim() !== "" || filterType !== "all" || sortBy !== "date_desc";
+
+  const clearAllFilters = () => {
+    setFilterMonth("");
+    setSearchTerm("");
+    setFilterType("all");
+    setSortBy("date_desc");
+  };
 
   const parentRef = useRef<HTMLDivElement>(null);
   
@@ -128,6 +174,17 @@ export default function Transactions() {
     estimateSize: () => 76, // wysokość wiersza to ok. 76px (p-4 + treść)
     overscan: 5,
   });
+
+  const virtualItems = virtualizer.getVirtualItems();
+  
+  useEffect(() => {
+    const lastItem = virtualItems[virtualItems.length - 1];
+    if (!lastItem) return;
+    
+    if (lastItem.index >= filteredAndSorted.length - 1 && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [virtualItems, hasNextPage, isFetchingNextPage, fetchNextPage, filteredAndSorted.length]);
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full max-w-7xl mx-auto">
@@ -156,8 +213,8 @@ export default function Transactions() {
         )}
 
         {/* Filtry i Szukajka */}
-        <div className="p-4 border-b border-border bg-muted/20 flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="relative w-full sm:max-w-xs">
+        <div className="p-4 border-b border-border bg-muted/20 flex flex-col sm:flex-row gap-4 items-center justify-between relative z-20">
+          <div className="relative w-full sm:max-w-[260px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
             <input 
               type="text" 
@@ -169,24 +226,102 @@ export default function Transactions() {
           </div>
           <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
             <div className="flex items-center gap-2 bg-background border border-border rounded-lg p-1">
-              <button onClick={() => setFilterType("all")} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${filterType === 'all' ? 'bg-secondary text-secondary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Wszystkie</button>
+              <button onClick={() => setFilterType("all")} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${filterType === 'all' ? 'bg-secondary text-secondary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>ALL</button>
               <button onClick={() => setFilterType("expense")} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${filterType === 'expense' ? 'bg-red-500/10 text-red-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Wydatki</button>
               <button onClick={() => setFilterType("income")} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${filterType === 'income' ? 'bg-emerald-500/10 text-emerald-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Przychody</button>
             </div>
             
-            <div className="relative flex items-center gap-2 bg-background border border-border rounded-lg px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary transition-shadow">
-              <ArrowUpDown size={16} className="text-muted-foreground shrink-0" />
-              <select 
-                value={sortBy} 
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="bg-transparent text-sm font-medium focus:outline-none appearance-none cursor-pointer text-foreground pr-4"
+            {/* Custom Month Dropdown */}
+            <div className="relative z-30" ref={monthRef}>
+              <button 
+                onClick={() => setIsMonthOpen(!isMonthOpen)}
+                className="flex items-center justify-between gap-2 bg-background border border-border hover:bg-muted/50 rounded-lg px-3 py-1.5 transition-colors min-w-[110px]"
               >
-                <option value="date_desc" className="bg-background text-foreground">Najnowsze</option>
-                <option value="date_asc" className="bg-background text-foreground">Najstarsze</option>
-                <option value="amount_desc" className="bg-background text-foreground">Kwota malejąco</option>
-                <option value="amount_asc" className="bg-background text-foreground">Kwota rosnąco</option>
-              </select>
+                <div className="flex items-center gap-2">
+                  <Calendar size={16} className="text-muted-foreground shrink-0" />
+                  <span className="text-sm font-medium text-foreground truncate max-w-[85px]">
+                    {filterMonth ? formatMonthLabel(filterMonth) : "ALL"}
+                  </span>
+                </div>
+                {filterMonth ? (
+                  <X size={14} className="text-muted-foreground hover:text-foreground transition-colors ml-1" onClick={(e) => { e.stopPropagation(); setFilterMonth(""); }} />
+                ) : (
+                  <ArrowDownRight size={14} className={`text-muted-foreground transition-transform ${isMonthOpen ? 'rotate-180' : ''}`} />
+                )}
+              </button>
+              {isMonthOpen && (
+                <div className="absolute top-full left-0 mt-1 w-full min-w-[180px] bg-white dark:bg-[#1c1c1f] border border-border rounded-xl shadow-xl z-50 overflow-hidden opacity-100 animate-in slide-in-from-top-2">
+                  <ul className="max-h-60 overflow-y-auto py-1">
+                    <li>
+                      <button 
+                        className={`w-full text-left px-4 py-2 text-sm transition-colors hover:bg-muted ${!filterMonth ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'}`}
+                        onClick={() => { setFilterMonth(""); setIsMonthOpen(false); }}
+                      >
+                        ALL
+                      </button>
+                    </li>
+                    {availableMonths.map(m => (
+                      <li key={m}>
+                        <button 
+                          className={`w-full text-left px-4 py-2 text-sm transition-colors hover:bg-muted ${filterMonth === m ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'}`}
+                          onClick={() => { setFilterMonth(m); setIsMonthOpen(false); }}
+                        >
+                          {formatMonthLabel(m)}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
+            
+            {/* Custom Sort Dropdown */}
+            <div className="relative z-30" ref={sortRef}>
+              <button 
+                onClick={() => setIsSortOpen(!isSortOpen)}
+                className="flex items-center justify-between gap-2 bg-background border border-border hover:bg-muted/50 rounded-lg px-3 py-1.5 transition-colors min-w-[160px]"
+              >
+                <div className="flex items-center gap-2">
+                  <ArrowUpDown size={16} className="text-muted-foreground shrink-0" />
+                  <span className="text-sm font-medium text-foreground truncate">
+                    {sortBy === "date_desc" && "Najnowsze"}
+                    {sortBy === "date_asc" && "Najstarsze"}
+                    {sortBy === "amount_desc" && "Kwota malejąco"}
+                    {sortBy === "amount_asc" && "Kwota rosnąco"}
+                  </span>
+                </div>
+              </button>
+              {isSortOpen && (
+                <div className="absolute top-full right-0 mt-1 w-[160px] bg-white dark:bg-[#1c1c1f] border border-border rounded-xl shadow-xl z-50 overflow-hidden opacity-100 animate-in slide-in-from-top-2">
+                  <ul className="py-1">
+                    {[
+                      { id: "date_desc", label: "Najnowsze" },
+                      { id: "date_asc", label: "Najstarsze" },
+                      { id: "amount_desc", label: "Kwota malejąco" },
+                      { id: "amount_asc", label: "Kwota rosnąco" }
+                    ].map(opt => (
+                      <li key={opt.id}>
+                        <button 
+                          className={`w-full text-left px-4 py-2 text-sm transition-colors hover:bg-muted ${sortBy === opt.id ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'}`}
+                          onClick={() => { setSortBy(opt.id as any); setIsSortOpen(false); }}
+                        >
+                          {opt.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            
+            {hasActiveFilters && (
+              <button 
+                onClick={clearAllFilters}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg transition-colors ml-auto sm:ml-0"
+              >
+                <X size={14} /> Wyczyść filtry
+              </button>
+            )}
           </div>
         </div>
 
@@ -196,7 +331,7 @@ export default function Transactions() {
              <p className="text-lg font-medium text-muted-foreground">Brak pasujących transakcji.</p>
            </div>
         ) : (
-          <div ref={parentRef} className="flex-1 overflow-y-auto relative">
+          <div ref={parentRef} className="flex-1 overflow-y-auto relative z-10">
             <div 
               className="divide-y divide-border relative"
               style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -234,7 +369,12 @@ export default function Transactions() {
                           </span>
                           <span className="text-xs text-muted-foreground font-medium">{tx.date}</span>
                           {tx.tags && tx.tags.map(tag => (
-                            <span key={tag} className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 bg-primary/10 text-primary rounded-md">
+                            <span 
+                              key={tag} 
+                              onClick={(e) => { e.stopPropagation(); setSearchTerm('#' + tag); }}
+                              className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 bg-primary/10 text-primary rounded-md cursor-pointer hover:bg-primary/20 transition-colors"
+                              title="Filtruj po tym tagu"
+                            >
                               #{tag}
                             </span>
                           ))}
@@ -246,14 +386,14 @@ export default function Transactions() {
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 w-0 group-hover:w-[76px] overflow-hidden shrink-0">
                         <button 
                           onClick={() => setTransactionModalOpen(true, tx.id)}
-                          className="p-2 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors cursor-pointer shrink-0"
+                          className="p-2 rounded-full bg-primary/10 text-primary hover:bg-slate-800 hover:text-slate-100 dark:hover:bg-primary dark:hover:text-white transition-all cursor-pointer shrink-0"
                           title="Edytuj operację"
                         >
                           <Edit2 size={16} />
                         </button>
                         <button 
                           onClick={() => handleDelete(tx.id)}
-                          className="p-2 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-colors cursor-pointer shrink-0"
+                          className="p-2 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all cursor-pointer shrink-0"
                           title="Usuń operację"
                         >
                           <Trash2 size={16} />

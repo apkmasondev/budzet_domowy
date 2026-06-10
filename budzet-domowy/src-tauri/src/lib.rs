@@ -46,9 +46,33 @@ fn bulk_insert_transactions(state: State<'_, Mutex<Connection>>, payloads: Vec<d
 }
 
 #[tauri::command]
-fn get_transactions(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::transactions::Transaction>, String> {
+fn get_transactions(state: State<'_, Mutex<Connection>>, limit: u32, offset: u32) -> Result<Vec<db::transactions::Transaction>, String> {
     let conn = state.lock().map_err(|e| e.to_string())?;
-    db::transactions::get_transactions(&conn).map_err(|e| e.to_string())
+    db::transactions::get_transactions(&conn, limit, offset).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_all_transactions(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::transactions::Transaction>, String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    db::transactions::get_transactions(&conn, 1000000, 0).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_transactions_count(state: State<'_, Mutex<Connection>>) -> Result<u32, String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    db::transactions::get_transactions_count(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_budget_states(state: State<'_, Mutex<Connection>>, month: &str) -> Result<Vec<db::zbb::CategoryState>, String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    db::zbb::get_budget_states(&conn, month).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_ready_to_assign(state: State<'_, Mutex<Connection>>) -> Result<f64, String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    db::zbb::get_ready_to_assign(&conn).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -133,19 +157,19 @@ fn get_recurrings(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::recurri
 }
 
 #[tauri::command]
-fn create_recurring(state: State<'_, Mutex<Connection>>, payload: db::recurring::CreateRecurring) -> Result<i32, String> {
+fn create_recurring(state: State<'_, Mutex<Connection>>, payload: db::recurring::CreateRecurring) -> Result<i64, String> {
     let conn = state.lock().map_err(|e| e.to_string())?;
     db::recurring::create_recurring(&conn, payload).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn delete_recurring(state: State<'_, Mutex<Connection>>, id: i32) -> Result<(), String> {
+fn delete_recurring(state: State<'_, Mutex<Connection>>, id: i64) -> Result<(), String> {
     let conn = state.lock().map_err(|e| e.to_string())?;
     db::recurring::delete_recurring(&conn, id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn update_recurring(state: State<'_, Mutex<Connection>>, id: i32, payload: db::recurring::UpdateRecurring) -> Result<(), String> {
+fn update_recurring(state: State<'_, Mutex<Connection>>, id: i64, payload: db::recurring::UpdateRecurring) -> Result<(), String> {
     let conn = state.lock().map_err(|e| e.to_string())?;
     db::recurring::update_recurring(&conn, id, payload).map_err(|e| e.to_string())
 }
@@ -256,6 +280,12 @@ fn delete_category(state: State<'_, Mutex<Connection>>, id: i64) -> Result<(), S
     db::categories::delete_category(&conn, id).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn update_category(state: State<'_, Mutex<Connection>>, id: i64, name: &str, type_: &str, color: Option<&str>) -> Result<(), String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    db::categories::update_category(&conn, id, name, type_, color).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -277,6 +307,10 @@ pub fn run() {
             delete_account,
             get_categories,
             get_transactions,
+            get_all_transactions,
+            get_transactions_count,
+            get_budget_states,
+            get_ready_to_assign,
             create_transaction,
             get_tags,
             get_budgets,
@@ -300,6 +334,7 @@ pub fn run() {
             factory_reset,
             create_category,
             delete_category,
+            update_category,
             bulk_insert_transactions,
             delete_transaction,
             update_transaction,

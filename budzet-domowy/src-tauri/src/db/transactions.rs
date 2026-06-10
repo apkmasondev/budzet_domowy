@@ -77,7 +77,7 @@ pub fn create_transaction(conn: &mut Connection, payload: CreateTransactionPaylo
             if !tag_name.is_empty() {
                 // Utwórz lub znajdź tag
                 let tag_id = tags::create_tag(&tx, tag_name, None)?;
-                tags::add_tag_to_transaction(&tx, last_id as i32, tag_id)?;
+                tags::add_tag_to_transaction(&tx, last_id, tag_id)?;
             }
         }
     }
@@ -98,10 +98,22 @@ pub fn create_transaction(conn: &mut Connection, payload: CreateTransactionPaylo
     Ok(last_id)
 }
 
-pub fn get_transactions(conn: &Connection) -> Result<Vec<Transaction>> {
-    let mut stmt = conn.prepare("SELECT id, account_id, category_id, amount, type, description, date, transfer_to_id, created_at, updated_at FROM transactions ORDER BY date DESC, id DESC")?;
-    let iter = stmt.query_map([], |row| {
+pub fn get_transactions(conn: &Connection, limit: u32, offset: u32) -> Result<Vec<Transaction>> {
+    let mut stmt = conn.prepare("
+        SELECT t.id, t.account_id, t.category_id, t.amount, t.type, t.description, t.date, t.transfer_to_id, t.created_at, t.updated_at,
+               GROUP_CONCAT(tg.name, ',') as tags_str
+        FROM transactions t
+        LEFT JOIN transaction_tags tt ON t.id = tt.transaction_id
+        LEFT JOIN tags tg ON tt.tag_id = tg.id
+        GROUP BY t.id
+        ORDER BY t.date DESC, t.id DESC 
+        LIMIT ?1 OFFSET ?2
+    ")?;
+    let iter = stmt.query_map(params![limit, offset], |row| {
         let id: i64 = row.get(0)?;
+        let tags_str: Option<String> = row.get(10)?;
+        let tags = tags_str.map(|s| s.split(',').map(|tag| tag.to_string()).collect());
+
         Ok(Transaction {
             id,
             account_id: row.get(1)?,
@@ -113,7 +125,7 @@ pub fn get_transactions(conn: &Connection) -> Result<Vec<Transaction>> {
             transfer_to_id: row.get(7)?,
             created_at: row.get(8)?,
             updated_at: row.get(9)?,
-            tags: None,
+            tags,
         })
     })?;
 
@@ -122,37 +134,43 @@ pub fn get_transactions(conn: &Connection) -> Result<Vec<Transaction>> {
         transactions.push(item?);
     }
 
-    // Pobranie wszystkich tagów dla transakcji w jednym zapytaniu, żeby uniknąć N+1 Queries
-    let mut tags_map: std::collections::HashMap<i64, Vec<String>> = std::collections::HashMap::new();
-    let mut stmt_tags = conn.prepare("
-        SELECT tt.transaction_id, t.name 
-        FROM transaction_tags tt 
-        JOIN tags t ON tt.tag_id = t.id
-    ")?;
-    
-    let tags_iter = stmt_tags.query_map([], |row| {
-        Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
-    })?;
-
-    for item in tags_iter {
-        if let Ok((tx_id, tag_name)) = item {
-            tags_map.entry(tx_id).or_default().push(tag_name);
-        }
-    }
-
-    // Przypisanie tagów do transakcji w pamięci RAM
-    for tx in &mut transactions {
-        if let Some(tags) = tags_map.remove(&tx.id) {
-            tx.tags = Some(tags);
-        }
-    }
-
     Ok(transactions)
+}
+
+pub fn get_transactions_count(conn: &Connection) -> Result<u32> {
+    let mut stmt = conn.prepare("SELECT COUNT(*) FROM transactions")?;
+    stmt.query_row([], |row| row.get(0))
 }
 
 pub fn bulk_insert_transactions(conn: &mut Connection, payloads: Vec<CreateTransactionPayload>) -> Result<usize> {
     let tx = conn.transaction()?;
     let mut count = 0;
+
+    let mut existing_hashes = std::collections::HashSet::new();
+    if !payloads.is_empty() {
+        let mut account_ids: Vec<String> = payloads.iter().map(|p| p.account_id.to_string()).collect();
+        account_ids.sort();
+        account_ids.dedup();
+        
+        let in_clause = account_ids.join(",");
+        let query = format!("SELECT date, amount, description, account_id FROM transactions WHERE account_id IN ({})", in_clause);
+        let mut stmt = tx.prepare(&query)?;
+        
+        let iter = stmt.query_map([], |row| {
+            let date: String = row.get(0)?;
+            let amount: f64 = row.get(1)?;
+            let desc: Option<String> = row.get(2)?;
+            let account_id: i64 = row.get(3)?;
+            let desc_str = desc.unwrap_or_default();
+            Ok(format!("{}|{:.2}|{}|{}", date, amount, desc_str, account_id))
+        })?;
+        
+        for item in iter {
+            if let Ok(hash) = item {
+                existing_hashes.insert(hash);
+            }
+        }
+    }
 
     for payload in payloads {
         if payload.amount <= 0.0 {
@@ -161,6 +179,14 @@ pub fn bulk_insert_transactions(conn: &mut Connection, payloads: Vec<CreateTrans
         if payload.type_ != "income" && payload.type_ != "expense" && payload.type_ != "transfer" {
             return Err(rusqlite::Error::InvalidParameterName("Nieprawidłowy typ transakcji".to_string()));
         }
+
+        let desc_str = payload.description.as_deref().unwrap_or("");
+        let hash = format!("{}|{:.2}|{}|{}", payload.date, payload.amount, desc_str, payload.account_id);
+        
+        if existing_hashes.contains(&hash) {
+            continue; // Pomijamy duplikaty
+        }
+        existing_hashes.insert(hash);
 
         tx.execute(
             "INSERT INTO transactions (account_id, category_id, amount, type, description, date, transfer_to_id)
@@ -183,7 +209,7 @@ pub fn bulk_insert_transactions(conn: &mut Connection, payloads: Vec<CreateTrans
                 let tag_name = tag_name.trim();
                 if !tag_name.is_empty() {
                     let tag_id = tags::create_tag(&tx, tag_name, None)?;
-                    tags::add_tag_to_transaction(&tx, last_id as i32, tag_id)?;
+                    tags::add_tag_to_transaction(&tx, last_id, tag_id)?;
                 }
             }
         }
@@ -314,7 +340,7 @@ pub fn update_transaction(conn: &mut Connection, id: i64, payload: UpdateTransac
             let tag_name = tag_name.trim();
             if !tag_name.is_empty() {
                 let tag_id = tags::create_tag(&tx, tag_name, None)?;
-                tags::add_tag_to_transaction(&tx, id as i32, tag_id)?;
+                tags::add_tag_to_transaction(&tx, id, tag_id)?;
             }
         }
     }

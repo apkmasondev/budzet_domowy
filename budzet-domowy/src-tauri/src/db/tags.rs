@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Tag {
-    pub id: i32,
+    pub id: i64,
     pub name: String,
     pub color: Option<String>,
 }
@@ -25,7 +25,7 @@ pub fn get_all_tags(conn: &Connection) -> Result<Vec<Tag>> {
     Ok(tags)
 }
 
-pub fn create_tag(conn: &Connection, name: &str, color: Option<&str>) -> Result<i32> {
+pub fn create_tag(conn: &Connection, name: &str, color: Option<&str>) -> Result<i64> {
     // Sprawdzamy czy tag istnieje
     let mut stmt = conn.prepare("SELECT id FROM tags WHERE name = ?1")?;
     if let Ok(id) = stmt.query_row(params![name], |row| row.get(0)) {
@@ -36,10 +36,10 @@ pub fn create_tag(conn: &Connection, name: &str, color: Option<&str>) -> Result<
         "INSERT INTO tags (name, color) VALUES (?1, ?2)",
         params![name, color],
     )?;
-    Ok(conn.last_insert_rowid() as i32)
+    Ok(conn.last_insert_rowid())
 }
 
-pub fn add_tag_to_transaction(conn: &Connection, transaction_id: i32, tag_id: i32) -> Result<()> {
+pub fn add_tag_to_transaction(conn: &Connection, transaction_id: i64, tag_id: i64) -> Result<()> {
     conn.execute(
         "INSERT OR IGNORE INTO transaction_tags (transaction_id, tag_id) VALUES (?1, ?2)",
         params![transaction_id, tag_id],
@@ -47,7 +47,7 @@ pub fn add_tag_to_transaction(conn: &Connection, transaction_id: i32, tag_id: i3
     Ok(())
 }
 
-pub fn get_tags_for_transaction(conn: &Connection, transaction_id: i32) -> Result<Vec<String>> {
+pub fn get_tags_for_transaction(conn: &Connection, transaction_id: i64) -> Result<Vec<String>> {
     let mut stmt = conn.prepare(
         "SELECT t.name FROM tags t
          JOIN transaction_tags tt ON t.id = tt.tag_id
@@ -64,7 +64,7 @@ pub fn get_tags_for_transaction(conn: &Connection, transaction_id: i32) -> Resul
     Ok(tags)
 }
 
-pub fn set_transaction_tags(conn: &Connection, transaction_id: i32, tags: Vec<String>) -> Result<()> {
+pub fn set_transaction_tags(conn: &Connection, transaction_id: i64, tags: Vec<String>) -> Result<()> {
     // Najpierw usuwamy stare tagi
     conn.execute("DELETE FROM transaction_tags WHERE transaction_id = ?1", params![transaction_id])?;
 

@@ -85,7 +85,7 @@ export default function App() {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto p-8 relative print:overflow-visible print:h-auto print:p-0">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-8 relative print:overflow-visible print:h-auto print:p-0">
           {/* Subtle gradient background effects for modern look */}
           <div className="absolute -top-40 -right-40 w-96 h-96 bg-primary/10 rounded-full blur-[100px] pointer-events-none print:hidden" />
           <div className="absolute top-1/2 -left-20 w-72 h-72 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none print:hidden" />

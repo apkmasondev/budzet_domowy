@@ -135,25 +135,39 @@ export default function Goals() {
           const isCompleted = goal.current_amount >= goal.target_amount;
           
           return (
-            <div key={goal.id} className="p-6 bg-card border border-border/80 rounded-2xl shadow-sm flex flex-col relative overflow-hidden group transition-all duration-300 hover:shadow-md ring-1 ring-transparent hover:ring-primary/20">
-              <div className="absolute -right-8 -top-8 text-primary opacity-10 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500">
+            <div 
+              key={goal.id} 
+              className={`p-6 bg-card rounded-2xl shadow-sm flex flex-col relative overflow-hidden group transition-all duration-300 hover:shadow-md ring-1 ring-transparent hover:ring-primary/20 ${
+                isCompleted 
+                  ? 'border-2 border-amber-500/60 dark:border-amber-400/30 bg-gradient-to-br from-amber-500/[0.05] dark:from-amber-500/[0.03] to-card shadow-md shadow-amber-500/[0.03]' 
+                  : 'border border-border/80'
+              }`}
+            >
+              <div className={`absolute -right-8 -top-8 opacity-10 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500 ${isCompleted ? 'text-amber-500' : 'text-primary'}`}>
                 {isCompleted ? <Trophy size={140} /> : <Target size={140} />}
               </div>
               <div className="flex justify-between items-start mb-6 relative z-10">
                 <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-2xl shadow-inner border border-border/50 ${isCompleted ? 'bg-emerald-500/20 text-emerald-500' : 'bg-primary/20 text-primary'}`}>
+                  <div className={`p-3 rounded-2xl shadow-inner border border-border/50 ${isCompleted ? 'bg-amber-500/10 text-amber-500 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-primary/20 text-primary'}`}>
                     {isCompleted ? <Trophy size={24} /> : <Target size={24} />}
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg text-foreground pr-8">{goal.name}</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-lg text-foreground pr-8">{goal.name}</h3>
+                      {isCompleted && (
+                        <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-500/30 shrink-0">
+                          Sukces! 🏆
+                        </span>
+                      )}
+                    </div>
                     {goal.deadline && <p className="text-xs font-medium text-muted-foreground">Do: {goal.deadline}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => openEditModal(goal)} className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted">
+                  <button onClick={() => openEditModal(goal)} className="text-muted-foreground hover:text-primary hover:bg-primary/10 hover:scale-110 transition-all p-1.5 rounded-lg cursor-pointer">
                     <Pencil size={16} />
                   </button>
-                  <button onClick={() => handleDelete(goal.id, goal.name)} className="text-muted-foreground hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-500/10">
+                  <button onClick={() => handleDelete(goal.id, goal.name)} className="text-muted-foreground hover:text-red-500 hover:bg-red-500/10 hover:scale-110 transition-all p-1.5 rounded-lg cursor-pointer">
                     <Trash2 size={16} />
                   </button>
                 </div>
@@ -164,12 +178,12 @@ export default function Goals() {
                   <span className="font-bold text-lg text-foreground">{goal.current_amount.toFixed(2)} PLN</span>
                   <span className="text-xs font-medium text-muted-foreground">z {goal.target_amount.toFixed(2)} PLN</span>
                 </div>
-                <div className="w-full bg-muted/50 rounded-full h-3 mb-6 overflow-hidden border border-border/50 shadow-inner">
+                 <div className="w-full bg-muted/50 rounded-full h-3 mb-6 overflow-hidden border border-border/50 shadow-inner">
                   <div 
                     className={`h-full rounded-full transition-all duration-700 ease-out`}
                     style={{ 
                       width: `${Math.max(0, Math.min((Number(goal.current_amount) / Number(goal.target_amount)) * 100, 100)) || 0}%`, 
-                      backgroundColor: isCompleted ? '#10b981' : (goal.color || 'var(--color-primary)')
+                      backgroundColor: isCompleted ? '#f59e0b' : (goal.color || 'var(--color-primary)')
                     }}
                   />
                 </div>
@@ -177,9 +191,9 @@ export default function Goals() {
                 <button 
                   onClick={() => { setSelectedGoalId(goal.id); setIsDepositModalOpen(true); }}
                   disabled={isCompleted}
-                  className={`w-full py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm font-bold transition-all shadow-sm ${isCompleted ? 'bg-muted/50 text-muted-foreground cursor-not-allowed border border-border/50' : 'bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20'}`}
+                  className={`w-full py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm font-bold transition-all shadow-sm ${isCompleted ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-500/30 cursor-not-allowed shadow-inner' : 'bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20'}`}
                 >
-                  <Wallet size={18} /> {isCompleted ? 'Cel osiągnięty!' : 'Wpłać środki'}
+                  {isCompleted ? <Trophy size={18} /> : <Wallet size={18} />} {isCompleted ? 'Cel osiągnięty! 🏆' : 'Wpłać środki'}
                 </button>
               </div>
             </div>

@@ -2,7 +2,7 @@ import { Wallet, PieChart as PieChartIcon, TrendingDown, TrendingUp, History, Re
 import { useFinanceStore } from "../store/useFinanceStore";
 import SpendingPieChart from "../components/charts/SpendingPieChart";
 import MonthlyCashFlowChart from "../components/charts/MonthlyCashFlowChart";
-import { useAccounts, useTransactions, useBudgets, useCategories, useRecurrings } from "../lib/queries";
+import { useAccounts, useCategories, useAllTransactions, useBudgets, useRecurrings } from "../lib/queries";
 import { useReadyToAssign } from "../hooks/useReadyToAssign";
 import { useNavigate } from "react-router-dom";
 
@@ -17,7 +17,7 @@ export default function Dashboard() {
   const currentMonth = new Date().toISOString().substring(0, 7); // "YYYY-MM"
 
   const { data: accounts = [], isLoading: isAccountsLoading } = useAccounts();
-  const { data: transactions = [], isLoading: isTransactionsLoading } = useTransactions();
+  const { data: transactions = [], isLoading: isTransactionsLoading } = useAllTransactions();
   const { data: budgets = [] } = useBudgets(currentMonth);
   const { data: categories = [] } = useCategories();
   const { data: recurrings = [] } = useRecurrings();
@@ -34,6 +34,9 @@ export default function Dashboard() {
     .reduce((sum, tx) => sum + tx.amount, 0);
 
   const activeSubscriptions = recurrings ? recurrings.filter(r => r.active).length : 0;
+  const paidSubscriptionsCount = recurrings
+    ? recurrings.filter(r => r.active && r.next_date.substring(0, 7) > currentMonth).length
+    : 0;
 
   const recentTransactions = [...transactions]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -124,7 +127,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8 print:block print:space-y-6">
         
         {/* Ready To Assign Card */}
-        <div onClick={() => navigate('/goals')} className="bg-gradient-to-br from-emerald-500/10 to-indigo-500/10 dark:from-emerald-500/20 dark:to-indigo-500/20 backdrop-blur-xl border border-emerald-500/30 p-6 rounded-2xl shadow-lg relative overflow-hidden group hover:-translate-y-1 transition-all duration-300 print:bg-none print:shadow-none print:border-border print:text-black print:break-inside-avoid cursor-pointer">
+        <div onClick={() => navigate('/budgets')} className="bg-gradient-to-br from-emerald-500/10 to-indigo-500/10 dark:from-emerald-500/20 dark:to-indigo-500/20 backdrop-blur-xl border border-emerald-500/30 p-6 rounded-2xl shadow-lg relative overflow-hidden group hover:-translate-y-1 transition-all duration-300 print:bg-none print:shadow-none print:border-border print:text-black print:break-inside-avoid cursor-pointer">
           <div className="absolute -right-6 -bottom-6 text-emerald-500/10 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-500 print:hidden">
             <Wallet size={120} strokeWidth={1} />
           </div>
@@ -159,7 +162,7 @@ export default function Dashboard() {
         </div>
 
         {/* Expenses Card */}
-        <div onClick={() => navigate('/transactions')} className="bg-gradient-to-br from-red-500/5 to-transparent dark:from-red-500/10 dark:to-card backdrop-blur-md border border-red-500/10 dark:border-red-500/20 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-red-500/30 transition-all duration-300 group relative overflow-hidden print:bg-none print:border-border print:break-inside-avoid cursor-pointer">
+        <div onClick={() => navigate('/transactions?type=expense')} className="bg-gradient-to-br from-red-500/5 to-transparent dark:from-red-500/10 dark:to-card backdrop-blur-md border border-red-500/10 dark:border-red-500/20 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-red-500/30 transition-all duration-300 group relative overflow-hidden print:bg-none print:border-border print:break-inside-avoid cursor-pointer">
           <div className="absolute -right-8 -bottom-8 text-red-600/10 dark:text-red-400/10 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-500 print:hidden">
             <TrendingDown size={140} strokeWidth={1} />
           </div>
@@ -178,7 +181,7 @@ export default function Dashboard() {
         </div>
 
         {/* Incomes Card */}
-        <div onClick={() => navigate('/transactions')} className="bg-gradient-to-br from-emerald-500/5 to-transparent dark:from-emerald-500/10 dark:to-card backdrop-blur-md border border-emerald-500/10 dark:border-emerald-500/20 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-emerald-500/30 transition-all duration-300 group relative overflow-hidden print:bg-none print:border-border print:break-inside-avoid cursor-pointer">
+        <div onClick={() => navigate('/transactions?type=income')} className="bg-gradient-to-br from-emerald-500/5 to-transparent dark:from-emerald-500/10 dark:to-card backdrop-blur-md border border-emerald-500/10 dark:border-emerald-500/20 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-emerald-500/30 transition-all duration-300 group relative overflow-hidden print:bg-none print:border-border print:break-inside-avoid cursor-pointer">
           <div className="absolute -right-8 -bottom-8 text-emerald-600/10 dark:text-emerald-400/10 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-500 print:hidden">
             <TrendingUp size={140} strokeWidth={1} />
           </div>
@@ -207,8 +210,13 @@ export default function Dashboard() {
               <Repeat size={20} />
             </div>
           </div>
-          <div className="relative z-10 mt-1">
+          <div className="relative z-10 mt-1 flex flex-col">
             <p className="text-3xl font-bold text-foreground leading-tight print:text-black">{activeSubscriptions}</p>
+            {activeSubscriptions > 0 && (
+              <span className="text-xs text-muted-foreground mt-2 font-medium">
+                Zaksięgowane: <span className="font-semibold text-emerald-500">{paidSubscriptionsCount}</span> z {activeSubscriptions}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -253,7 +261,15 @@ export default function Dashboard() {
                   const isTransfer = tx.type === "transfer";
                   
                   return (
-                    <tr key={tx.id} className="hover:bg-muted/30 transition-colors">
+                    <tr 
+                      key={tx.id} 
+                      onClick={() => {
+                        const searchVal = tx.description ? tx.description : (cat?.name || "");
+                        navigate(`/transactions?search=${encodeURIComponent(searchVal)}`);
+                      }}
+                      className="hover:bg-muted/50 transition-colors cursor-pointer group/row"
+                      title="Kliknij, aby przefiltrować historię po tym wpisie"
+                    >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shadow-inner print:border print:border-gray-200" style={{ backgroundColor: cat?.color ? `${cat.color}20` : '#ccc', color: cat?.color || '#555' }}>

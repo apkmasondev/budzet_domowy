@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Download, Upload, AlertTriangle, CheckCircle2, Shield, EyeOff, Tag, Trash2, Power, Palette, Sun, Moon, Monitor } from "lucide-react";
+import { Download, Upload, AlertTriangle, CheckCircle2, Shield, EyeOff, Tag, Trash2, Power, Palette, Sun, Moon, Monitor, Pencil } from "lucide-react";
 import { api } from "../lib/api";
 import { useFinanceStore } from "../store/useFinanceStore";
 import { useTheme } from "../store/ThemeProvider";
 import { useDialogStore } from "../store/useDialogStore";
 import { save, open } from "@tauri-apps/plugin-dialog";
-import { useCategories, useCreateCategory, useDeleteCategory } from "../lib/queries";
+import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "../lib/queries";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function Settings() {
@@ -30,6 +30,7 @@ export default function Settings() {
   const [newPin, setNewPin] = useState("");
 
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [catName, setCatName] = useState("");
   const [catType, setCatType] = useState("expense");
   const [catColor, setCatColor] = useState("#8b5cf6");
@@ -114,12 +115,34 @@ export default function Settings() {
     );
   };
 
-  const handleCreateCategory = async (e: React.FormEvent) => {
+  const updateCategoryMutation = useUpdateCategory();
+
+  const handleSubmitCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    await createCategoryMutation.mutateAsync({ name: catName, type: catType, color: catColor });
-    setIsCategoryModalOpen(false);
-    setCatName("");
-    showMessage('success', 'Utworzono nową kategorię.');
+    try {
+      if (editingCategoryId !== null) {
+        await updateCategoryMutation.mutateAsync({ id: editingCategoryId, name: catName, type: catType, color: catColor });
+        showMessage('success', 'Zaktualizowano kategorię.');
+      } else {
+        await createCategoryMutation.mutateAsync({ name: catName, type: catType, color: catColor });
+        showMessage('success', 'Utworzono nową kategorię.');
+      }
+      setIsCategoryModalOpen(false);
+      setEditingCategoryId(null);
+      setCatName("");
+      setCatType("expense");
+      setCatColor("#8b5cf6");
+    } catch (error) {
+      showAlert("Błąd", "Nie udało się zapisać kategorii.");
+    }
+  };
+
+  const openEditCategoryModal = (cat: any) => {
+    setEditingCategoryId(cat.id);
+    setCatName(cat.name);
+    setCatType(cat.type);
+    setCatColor(cat.color || "#8b5cf6");
+    setIsCategoryModalOpen(true);
   };
 
   const handleDeleteCategory = (id: number, name: string) => {
@@ -249,8 +272,8 @@ export default function Settings() {
         </div>
         <div className="p-6 flex flex-col gap-6">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">Dodawaj własne kategorie lub usuwaj te, których nie używasz.</p>
-            <button onClick={() => setIsCategoryModalOpen(true)} className="border border-border bg-card hover:bg-muted text-foreground px-5 py-2 rounded-xl font-medium transition-all shadow-sm text-sm">
+            <p className="text-sm text-muted-foreground">Dodawaj własne kategorie lub edytuj i usuwaj te, których nie używasz.</p>
+            <button onClick={() => { setEditingCategoryId(null); setCatName(""); setCatType("expense"); setCatColor("#8b5cf6"); setIsCategoryModalOpen(true); }} className="border border-border bg-card hover:bg-muted text-foreground px-5 py-2 rounded-xl font-medium transition-all shadow-sm text-sm">
               Dodaj kategorię
             </button>
           </div>
@@ -260,12 +283,22 @@ export default function Settings() {
               <div key={cat.id} className="flex items-center gap-2 bg-background border border-border px-3 py-1.5 rounded-lg text-sm group">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color || '#6366f1' }}></div>
                 <span>{cat.name}</span>
-                <button
-                  onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                  className="ml-2 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Trash2 size={14} />
-                </button>
+                <div className="flex items-center gap-1.5 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => openEditCategoryModal(cat)}
+                    className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                    title="Edytuj kategorię"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                    className="text-muted-foreground hover:text-red-500 transition-colors cursor-pointer"
+                    title="Usuń kategorię"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -341,10 +374,10 @@ export default function Settings() {
 
       {/* Category Modal */}
       {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setIsCategoryModalOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => { setIsCategoryModalOpen(false); setEditingCategoryId(null); }}>
           <div className="bg-[var(--color-card)] border border-border/50 p-8 rounded-2xl shadow-2xl w-full max-w-sm animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-bold mb-4">Nowa kategoria</h2>
-            <form onSubmit={handleCreateCategory} className="flex flex-col gap-4">
+            <h2 className="text-xl font-bold mb-4">{editingCategoryId !== null ? "Edytuj kategorię" : "Nowa kategoria"}</h2>
+            <form onSubmit={handleSubmitCategory} className="flex flex-col gap-4">
               <input
                 required
                 value={catName}
@@ -361,8 +394,8 @@ export default function Settings() {
                 <input type="color" value={catColor} onChange={e => setCatColor(e.target.value)} className="h-8 w-14 bg-transparent cursor-pointer rounded" />
               </div>
               <div className="flex justify-end gap-3 mt-2">
-                <button type="button" onClick={() => setIsCategoryModalOpen(false)} className="px-4 py-2 text-sm text-muted-foreground">Anuluj</button>
-                <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">Utwórz</button>
+                <button type="button" onClick={() => { setIsCategoryModalOpen(false); setEditingCategoryId(null); }} className="px-4 py-2 text-sm text-muted-foreground">Anuluj</button>
+                <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">{editingCategoryId !== null ? "Zapisz" : "Utwórz"}</button>
               </div>
             </form>
           </div>

@@ -1,89 +1,98 @@
 import { useState, useMemo } from "react";
 import { useDialogStore } from "../store/useDialogStore";
-import { Copy, Info } from "lucide-react";
-import { useAccounts, useCategories, useTransactions, useAllBudgets, useUpsertBudget, useCopyBudgets } from "../lib/queries";
+import { Copy, Info, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle } from "lucide-react";
+import { useCategories, useUpsertBudget, useCopyBudgets, useBudgetStates, useReadyToAssignData } from "../lib/queries";
 
 export default function Budgets() {
   const { showConfirm } = useDialogStore();
   
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
 
-  const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
-  const { data: transactions = [] } = useTransactions();
-  const { data: budgets = [], isLoading } = useAllBudgets();
+  const { data: readyToAssign = 0 } = useReadyToAssignData();
+  const { data: budgetStatesArray = [], isLoading } = useBudgetStates(selectedMonth);
   
   const upsertBudgetMutation = useUpsertBudget();
   const copyBudgetsMutation = useCopyBudgets();
 
   const expenseCategories = categories.filter(c => c.type === "expense" || c.type === "both");
 
-  const sortedMonths = useMemo(() => {
-    const allMonths = new Set<string>();
-    transactions.forEach(t => allMonths.add(t.date.slice(0, 7)));
-    budgets.forEach(b => allMonths.add(b.month));
-    allMonths.add(selectedMonth);
-    allMonths.add(new Date().toISOString().slice(0, 7)); // Current month
-    return Array.from(allMonths).sort();
-  }, [transactions, budgets, selectedMonth]);
-
   const categoryStates = useMemo(() => {
-    const states: Record<string, Record<number, { rollover: number; assigned: number; activity: number; available: number }>> = {};
-    
-    // Initialize
-    for (const m of sortedMonths) {
-      states[m] = {};
-      for (const cat of expenseCategories) {
-        states[m][cat.id] = { rollover: 0, assigned: 0, activity: 0, available: 0 };
-      }
-    }
-
-    // Calculate sequentially
-    for (let i = 0; i < sortedMonths.length; i++) {
-      const month = sortedMonths[i];
-      const prevMonth = i > 0 ? sortedMonths[i-1] : null;
-
-      for (const cat of expenseCategories) {
-        const rollover = prevMonth ? Math.max(states[prevMonth][cat.id].available, 0) : 0;
-        
-        const assigned = budgets.find(b => b.category_id === cat.id && b.month === month)?.amount || 0;
-        
-        const activity = transactions
-          .filter(t => t.category_id === cat.id && t.date.startsWith(month))
-          .reduce((sum, t) => {
-             if (t.type === 'expense') return sum + t.amount;
-             if (t.type === 'income') return sum - t.amount;
-             return sum;
-          }, 0);
-
-        const available = rollover + assigned - activity;
-
-        states[month][cat.id] = { rollover, assigned, activity, available };
-      }
+    const states: Record<number, { rollover: number; assigned: number; activity: number; available: number; overspent?: number }> = {};
+    for (const st of budgetStatesArray) {
+      states[st.category_id] = st;
     }
     return states;
-  }, [transactions, budgets, expenseCategories, sortedMonths]);
+  }, [budgetStatesArray]);
 
-  const readyToAssign = useMemo(() => {
-    if (accounts.length === 0) return 0;
-    const totalAccounts = accounts.reduce((sum, a) => sum + a.balance, 0);
-    
-    const latestMonth = sortedMonths[sortedMonths.length - 1];
-    if (!latestMonth) return totalAccounts;
-    
-    const latestState = categoryStates[latestMonth] || {};
-    let sumPositiveAvailable = 0;
-    for (const cat of expenseCategories) {
-      const avail = latestState[cat.id]?.available || 0;
-      if (avail > 0) sumPositiveAvailable += avail;
+  const [sortBy, setSortBy] = useState<"name" | "rollover" | "assigned" | "activity" | "available">("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  const handleSort = (field: typeof sortBy) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder(field === "name" ? "asc" : "desc");
     }
-    
-    return totalAccounts - sumPositiveAvailable;
-  }, [accounts, categoryStates, expenseCategories, sortedMonths]);
+  };
+
+  const sortedCategories = useMemo(() => {
+    const list = [...expenseCategories];
+    list.sort((a, b) => {
+      const stateA = categoryStates[a.id] || { rollover: 0, assigned: 0, activity: 0, available: 0, overspent: 0 };
+      const stateB = categoryStates[b.id] || { rollover: 0, assigned: 0, activity: 0, available: 0, overspent: 0 };
+      
+      let valA: any = 0;
+      let valB: any = 0;
+      
+      if (sortBy === "name") {
+        valA = a.name.toLowerCase();
+        valB = b.name.toLowerCase();
+      } else if (sortBy === "rollover") {
+        valA = stateA.rollover;
+        valB = stateB.rollover;
+      } else if (sortBy === "assigned") {
+        valA = stateA.assigned;
+        valB = stateB.assigned;
+      } else if (sortBy === "activity") {
+        valA = stateA.activity;
+        valB = stateB.activity;
+      } else if (sortBy === "available") {
+        valA = stateA.available;
+        valB = stateB.available;
+      }
+      
+      if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+      if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+    return list;
+  }, [expenseCategories, sortBy, sortOrder, categoryStates]);
+
+  const renderSortableHeader = (label: string, field: typeof sortBy, alignRight: boolean = false) => {
+    const isCurrent = sortBy === field;
+    return (
+      <th 
+        onClick={() => handleSort(field)}
+        className={`px-6 py-4 cursor-pointer select-none hover:bg-muted/80 transition-colors sticky top-0 z-20 bg-card border-b border-border shadow-sm group ${alignRight ? 'text-right' : 'text-left'}`}
+        style={{ backgroundColor: 'var(--color-card)' }}
+      >
+        <div className={`flex items-center gap-1.5 ${alignRight ? 'justify-end' : 'justify-start'}`}>
+          <span className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">{label}</span>
+          {isCurrent ? (
+            sortOrder === "asc" ? <ArrowUp size={13} className="text-primary shrink-0" /> : <ArrowDown size={13} className="text-primary shrink-0" />
+          ) : (
+            <ArrowUpDown size={13} className="text-muted-foreground/30 group-hover:text-muted-foreground transition-colors shrink-0" />
+          )}
+        </div>
+      </th>
+    );
+  };
 
   const handleInlineSave = async (categoryId: number, value: string) => {
     const amount = parseFloat(value) || 0;
-    const currentAssigned = categoryStates[selectedMonth]?.[categoryId]?.assigned || 0;
+    const currentAssigned = categoryStates[categoryId]?.assigned || 0;
     if (Math.abs(currentAssigned - amount) > 0.001) {
        await upsertBudgetMutation.mutateAsync({ category_id: categoryId, month: selectedMonth, amount });
     }
@@ -109,7 +118,7 @@ export default function Budgets() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full max-w-7xl mx-auto">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Budżety miesięczne (ZBB)</h1>
@@ -134,7 +143,7 @@ export default function Budgets() {
       </div>
 
       {/* Ready To Assign Card */}
-      <div className="bg-card border border-border rounded-2xl shadow-sm p-8 text-center relative overflow-hidden flex flex-col items-center justify-center">
+      <div className="bg-card border border-border rounded-2xl shadow-sm py-5 px-8 text-center relative overflow-hidden flex flex-col items-center justify-center">
         <div className="relative z-10">
           <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center justify-center gap-2">
             Do Rozdysponowania 
@@ -155,33 +164,51 @@ export default function Budgets() {
       </div>
 
       {/* Budgets Table */}
-      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden relative">
+      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden relative flex flex-col" style={{ maxHeight: 'calc(100vh - 340px)' }}>
         {isLoading && (
           <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex items-center justify-center">
             <span className="text-muted-foreground animate-pulse font-medium">Przeliczanie budżetów...</span>
           </div>
         )}
-        <div className="p-0 overflow-x-auto">
-          <table className="w-full text-sm text-left whitespace-nowrap">
-            <thead className="bg-muted/50 text-muted-foreground text-xs uppercase font-medium">
-              <tr>
-                <th className="px-6 py-4">Kategoria</th>
-                <th className="px-6 py-4 text-right">Z Poprzedniego</th>
-                <th className="px-6 py-4 text-right">Przypisano</th>
-                <th className="px-6 py-4 text-right">Wydano</th>
-                <th className="px-6 py-4 text-right">Dostępne</th>
+        <div className="p-0 overflow-auto flex-1 relative">
+          <table className="w-full text-sm text-left whitespace-nowrap border-collapse">
+            <thead className="text-muted-foreground text-xs uppercase font-medium sticky top-0 z-20" style={{ backgroundColor: 'var(--color-card)' }}>
+              <tr style={{ backgroundColor: 'var(--color-card)' }}>
+                {renderSortableHeader("Kategoria", "name")}
+                {renderSortableHeader("Z Poprzedniego", "rollover", true)}
+                {renderSortableHeader("Przypisano", "assigned", true)}
+                {renderSortableHeader("Wydano", "activity", true)}
+                {renderSortableHeader("Dostępne", "available", true)}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {expenseCategories.map(category => {
-                const state = categoryStates[selectedMonth]?.[category.id] || { rollover: 0, assigned: 0, activity: 0, available: 0 };
+              {sortedCategories.map(category => {
+                const state = categoryStates[category.id] || { rollover: 0, assigned: 0, activity: 0, available: 0 };
                 
                 return (
                   <tr key={`${category.id}-${selectedMonth}`} className="hover:bg-muted/30 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: category.color || '#ccc' }}></div>
-                        <span className="font-semibold text-foreground">{category.name}</span>
+                        <div className="w-3 h-3 rounded-full shadow-sm shrink-0" style={{ backgroundColor: category.color || '#ccc' }}></div>
+                        <span className="font-semibold text-foreground flex items-center gap-2">
+                          {category.name}
+                          {state.overspent !== undefined && state.overspent < -0.01 && (
+                            <div className="group/alert relative flex items-center">
+                              <AlertTriangle size={14} className="text-amber-500 cursor-help" />
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 p-3 bg-popover text-popover-foreground text-xs rounded-lg shadow-lg border border-border opacity-0 group-hover/alert:opacity-100 transition-opacity pointer-events-none z-50 text-left font-normal font-sans">
+                                Kategoria miała <strong>{Math.abs(state.overspent).toFixed(2)} PLN</strong> debetu w poprzednim miesiącu. Dług został pokryty ze środków "Do Rozdysponowania", a limit dla kategorii wyzerowany na start.
+                              </div>
+                            </div>
+                          )}
+                          {state.available < -0.01 && (
+                            <div className="group/alert relative flex items-center">
+                              <AlertTriangle size={14} className="text-red-500 cursor-help" />
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 p-3 bg-popover text-popover-foreground text-xs rounded-lg shadow-lg border border-border opacity-0 group-hover/alert:opacity-100 transition-opacity pointer-events-none z-50 text-left font-normal font-sans">
+                                Kategoria jest przekroczona o <strong>{Math.abs(state.available).toFixed(2)} PLN</strong> w tym miesiącu! Przydziel więcej środków, aby pokryć debet.
+                              </div>
+                            </div>
+                          )}
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -191,15 +218,16 @@ export default function Budgets() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="relative inline-flex items-center group-hover:scale-105 transition-transform duration-200">
-                         <input
-                           type="number"
-                           step="0.01"
-                           className="bg-card border border-border hover:border-primary/50 hover:bg-muted/20 focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 rounded-lg pl-2 pr-7 py-1.5 text-right w-28 font-bold transition-all outline-none shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                           defaultValue={state.assigned.toFixed(2)}
-                           onBlur={(e) => handleInlineSave(category.id, e.target.value)}
-                           onKeyDown={(e) => { if(e.key === 'Enter') e.currentTarget.blur() }}
-                           disabled={upsertBudgetMutation.isPending}
-                         />
+                          <input
+                            key={`${category.id}-${state.assigned}`}
+                            type="number"
+                            step="0.01"
+                            className="bg-card border border-border hover:border-primary/50 hover:bg-muted/20 focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 rounded-lg pl-2 pr-7 py-1.5 text-right w-28 font-bold transition-all outline-none shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            defaultValue={state.assigned.toFixed(2)}
+                            onBlur={(e) => handleInlineSave(category.id, e.target.value)}
+                            onKeyDown={(e) => { if(e.key === 'Enter') e.currentTarget.blur() }}
+                            disabled={upsertBudgetMutation.isPending}
+                          />
                          <span className="absolute right-2 text-xs font-semibold text-muted-foreground/70 pointer-events-none">zł</span>
                       </div>
                     </td>

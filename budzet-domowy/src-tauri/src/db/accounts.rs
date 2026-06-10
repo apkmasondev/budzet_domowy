@@ -74,7 +74,7 @@ pub fn delete_account(conn: &mut Connection, id: i64) -> Result<()> {
     let tx = conn.transaction()?;
     tx.execute("DELETE FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE account_id = ?1)", params![id])?;
     tx.execute("DELETE FROM transactions WHERE account_id = ?1 OR transfer_to_id = ?1", params![id])?;
-    tx.execute("UPDATE recurring SET account_id = NULL WHERE account_id = ?1", params![id as i32])?;
+    tx.execute("UPDATE recurring SET account_id = NULL WHERE account_id = ?1", params![id])?;
     tx.execute("DELETE FROM accounts WHERE id = ?1", params![id])?;
     tx.commit()?;
     Ok(())

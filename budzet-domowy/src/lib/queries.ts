@@ -17,10 +17,23 @@ export const useCategories = () => {
   });
 };
 
+import { useInfiniteQuery } from "@tanstack/react-query";
+
 export const useTransactions = () => {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ["transactions"],
-    queryFn: api.getTransactions,
+    queryFn: ({ pageParam = 0 }) => api.getTransactions(50, pageParam),
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.length === 50 ? allPages.length * 50 : undefined;
+    },
+    initialPageParam: 0,
+  });
+};
+
+export const useAllTransactions = () => {
+  return useQuery({
+    queryKey: ["transactions", "all"],
+    queryFn: api.getAllTransactions,
   });
 };
 
@@ -28,6 +41,20 @@ export const useBudgets = (month: string) => {
   return useQuery({
     queryKey: ["budgets", month],
     queryFn: () => api.getBudgets(month),
+  });
+};
+
+export const useBudgetStates = (month: string) => {
+  return useQuery({
+    queryKey: ["budgetStates", month],
+    queryFn: () => api.getBudgetStates(month),
+  });
+};
+
+export const useReadyToAssignData = () => {
+  return useQuery({
+    queryKey: ["readyToAssign"],
+    queryFn: api.getReadyToAssign,
   });
 };
 
@@ -68,6 +95,8 @@ export const useAddTransaction = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
+      queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
       if (variables.type === 'expense') {
         queryClient.invalidateQueries({ queryKey: ["budgets"] });
       }
@@ -86,6 +115,8 @@ export const useUpdateTransaction = () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
+      queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
       queryClient.invalidateQueries({ queryKey: ["tags"] });
     },
   });
@@ -99,6 +130,8 @@ export const useDeleteTransaction = () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
+      queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
       queryClient.invalidateQueries({ queryKey: ["tags"] });
     },
   });
@@ -111,6 +144,8 @@ export const useBulkAddTransactions = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
+      queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
       if (variables.some(v => v.type === 'expense')) {
         queryClient.invalidateQueries({ queryKey: ["budgets"] });
       }
@@ -127,6 +162,8 @@ export const useAddAccount = () => {
     mutationFn: api.createAccount,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
+      queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
     },
   });
 };
@@ -138,6 +175,8 @@ export const useUpdateAccount = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
+      queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
     },
   });
 };
@@ -149,6 +188,8 @@ export const useDeleteAccount = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
+      queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
     },
   });
 };
@@ -159,6 +200,8 @@ export const useUpsertBudget = () => {
     mutationFn: api.upsertBudget,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
+      queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
     },
   });
 };
@@ -169,6 +212,9 @@ export const useCopyBudgets = () => {
     mutationFn: ({ fromMonth, toMonth }: { fromMonth: string, toMonth: string }) => api.copyBudgetsToMonth(fromMonth, toMonth),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["budgets", variables.toMonth] });
+      queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
+      queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
     },
   });
 };
@@ -211,6 +257,8 @@ export const useAddToGoal = () => {
       queryClient.invalidateQueries({ queryKey: ["goals"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
+      queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
     },
   });
 };
@@ -225,6 +273,20 @@ export const useCreateCategory = () => {
   });
 };
 
+export const useUpdateCategory = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name, type, color }: { id: number, name: string, type: string, color?: string }) => api.updateCategory(id, name, type, color),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
+      queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
+    },
+  });
+};
+
 export const useDeleteCategory = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -233,6 +295,8 @@ export const useDeleteCategory = () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
+      queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
     },
   });
 };

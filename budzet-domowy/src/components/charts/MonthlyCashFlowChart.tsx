@@ -1,5 +1,6 @@
 import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../../store/useFinanceStore';
 import type { Transaction } from '../../types';
 
@@ -34,6 +35,8 @@ export default function MonthlyCashFlowChart({ monthsCount = 6, transactions = [
       };
     });
   }, [transactions, monthsCount]);
+
+  const navigate = useNavigate();
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -78,8 +81,22 @@ export default function MonthlyCashFlowChart({ monthsCount = 6, transactions = [
           />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff10', rx: 4 }} />
           <Legend wrapperStyle={{ paddingTop: '15px', fontSize: '13px', fontWeight: 500 }} formatter={(value) => <span style={{ color: 'var(--color-foreground)' }}>{value}</span>} />
-          <Bar dataKey="Przychody" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={45} />
-          <Bar dataKey="Wydatki" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={45} />
+          <Bar 
+            dataKey="Przychody" 
+            fill="#10b981" 
+            radius={[4, 4, 0, 0]} 
+            maxBarSize={45} 
+            className="cursor-pointer transition-opacity hover:opacity-85"
+            onClick={(data) => data?.name && navigate(`/transactions?month=${data.name}&type=income`)}
+          />
+          <Bar 
+            dataKey="Wydatki" 
+            fill="#ef4444" 
+            radius={[4, 4, 0, 0]} 
+            maxBarSize={45} 
+            className="cursor-pointer transition-opacity hover:opacity-85"
+            onClick={(data) => data?.name && navigate(`/transactions?month=${data.name}&type=expense`)}
+          />
           <Line type="monotone" dataKey="NetFlow" name="Zysk Netto" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
         </ComposedChart>
       </ResponsiveContainer>

@@ -3,6 +3,7 @@ import { useFinanceStore } from '../../store/useFinanceStore';
 import { useMemo } from 'react';
 import type { Transaction } from '../../types';
 import { useCategories } from '../../lib/queries';
+import { useNavigate } from 'react-router-dom';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#10b981', '#14b8a6', '#0ea5e9'];
 
@@ -14,6 +15,7 @@ interface Props {
 export default function SpendingPieChart({ month, transactions = [] }: Props) {
   const { data: categories = [] } = useCategories();
   const { privacyMode } = useFinanceStore();
+  const navigate = useNavigate();
 
   const data = useMemo(() => {
     const expenses = transactions.filter(t => t.type === 'expense' && (!month || t.date.startsWith(month)));
@@ -73,6 +75,12 @@ export default function SpendingPieChart({ month, transactions = [] }: Props) {
             paddingAngle={5}
             dataKey="value"
             stroke="none"
+            onClick={(data) => {
+              if (data && data.name) {
+                navigate(`/transactions?search=${encodeURIComponent(data.name)}`);
+              }
+            }}
+            style={{ cursor: 'pointer' }}
           >
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry.color} />

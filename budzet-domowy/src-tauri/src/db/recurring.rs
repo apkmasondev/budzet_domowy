@@ -3,11 +3,11 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Recurring {
-    pub id: i32,
+    pub id: i64,
     pub name: String,
     pub amount: f64,
-    pub category_id: Option<i32>,
-    pub account_id: Option<i32>,
+    pub category_id: Option<i64>,
+    pub account_id: Option<i64>,
     pub frequency: String,
     pub next_date: String,
     pub day_of_month: Option<i32>,
@@ -18,8 +18,8 @@ pub struct Recurring {
 pub struct CreateRecurring {
     pub name: String,
     pub amount: f64,
-    pub category_id: Option<i32>,
-    pub account_id: Option<i32>,
+    pub category_id: Option<i64>,
+    pub account_id: Option<i64>,
     pub frequency: String,
     pub next_date: String,
     pub day_of_month: Option<i32>,
@@ -47,26 +47,26 @@ pub fn get_recurrings(conn: &Connection) -> Result<Vec<Recurring>> {
     Ok(recurrings)
 }
 
-pub fn create_recurring(conn: &Connection, recurring: CreateRecurring) -> Result<i32> {
+pub fn create_recurring(conn: &Connection, recurring: CreateRecurring) -> Result<i64> {
     conn.execute(
         "INSERT INTO recurring (name, amount, category_id, account_id, frequency, next_date, day_of_month) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![recurring.name, recurring.amount, recurring.category_id, recurring.account_id, recurring.frequency, recurring.next_date, recurring.day_of_month],
     )?;
-    Ok(conn.last_insert_rowid() as i32)
+    Ok(conn.last_insert_rowid())
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateRecurring {
     pub name: String,
     pub amount: f64,
-    pub category_id: Option<i32>,
-    pub account_id: Option<i32>,
+    pub category_id: Option<i64>,
+    pub account_id: Option<i64>,
     pub frequency: String,
     pub next_date: String,
     pub day_of_month: Option<i32>,
 }
 
-pub fn update_recurring(conn: &Connection, id: i32, payload: UpdateRecurring) -> Result<()> {
+pub fn update_recurring(conn: &Connection, id: i64, payload: UpdateRecurring) -> Result<()> {
     conn.execute(
         "UPDATE recurring SET name = ?1, amount = ?2, category_id = ?3, account_id = ?4, frequency = ?5, next_date = ?6, day_of_month = ?7 WHERE id = ?8",
         params![payload.name, payload.amount, payload.category_id, payload.account_id, payload.frequency, payload.next_date, payload.day_of_month, id],
@@ -74,7 +74,7 @@ pub fn update_recurring(conn: &Connection, id: i32, payload: UpdateRecurring) ->
     Ok(())
 }
 
-pub fn delete_recurring(conn: &Connection, id: i32) -> Result<()> {
+pub fn delete_recurring(conn: &Connection, id: i64) -> Result<()> {
     conn.execute("DELETE FROM recurring WHERE id = ?1", params![id])?;
     Ok(())
 }
@@ -149,8 +149,8 @@ pub fn process_due_recurrings(conn: &mut Connection) -> Result<i32> {
 pub struct RecurringSuggestion {
     pub description: String,
     pub amount: f64,
-    pub category_id: Option<i32>,
-    pub account_id: i32,
+    pub category_id: Option<i64>,
+    pub account_id: i64,
     pub last_date: String,
 }
 
@@ -177,8 +177,8 @@ pub fn detect_suggestions(conn: &Connection) -> Result<Vec<RecurringSuggestion>>
     
     struct Tx {
         amount: f64,
-        category_id: Option<i32>,
-        account_id: i32,
+        category_id: Option<i64>,
+        account_id: i64,
         date: String,
     }
     

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { ArrowUpRight, ArrowDownRight, Target, Activity, Wallet } from "lucide-react";
-import { useTransactions, useAccounts, useCategories } from "../lib/queries";
+import { useAllTransactions, useAccounts, useCategories } from "../lib/queries";
 import { useFinanceStore } from "../store/useFinanceStore";
 import BalanceTrendChart from "../components/charts/BalanceTrendChart";
 import MonthlyCashFlowChart from "../components/charts/MonthlyCashFlowChart";
@@ -12,12 +12,12 @@ const formatCurrency = (amount: number, privacyMode: boolean) => {
 };
 
 export default function Reports() {
-  const { data: allTransactions = [] } = useTransactions();
+  const { data: allTransactions = [] } = useAllTransactions();
   const { data: allAccounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
   const { privacyMode } = useFinanceStore();
 
-  const [dateRange, setDateRange] = useState<"3M" | "6M" | "12M" | "YTD" | "ALL">("6M");
+  const [dateRange, setDateRange] = useState<"1M" | "3M" | "6M" | "12M" | "YTD" | "ALL">("6M");
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]); // empty means all
 
   // 1. Zastosowanie filtrów
@@ -34,7 +34,10 @@ export default function Reports() {
     let startDate: Date | null = null;
     let monthsCountForCharts = 6;
 
-    if (dateRange === "3M") {
+    if (dateRange === "1M") {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      monthsCountForCharts = 1;
+    } else if (dateRange === "3M") {
       startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
       monthsCountForCharts = 3;
     } else if (dateRange === "6M") {
@@ -126,16 +129,16 @@ export default function Reports() {
         </div>
         
         {/* Panel Sterowania */}
-        <div className="flex flex-row flex-wrap items-center gap-4 bg-card/60 backdrop-blur-md border border-border/50 p-3 rounded-2xl shadow-sm print:hidden w-full xl:w-auto">
+        <div className="flex flex-row flex-wrap items-center gap-4 bg-card border border-border p-3 rounded-2xl shadow-sm print:hidden w-full xl:w-auto">
           {/* Zakresy dat */}
-          <div className="flex items-center flex-wrap gap-1 bg-muted/50 p-1.5 rounded-xl border border-border/50">
-            {(["3M", "6M", "12M", "YTD", "ALL"] as const).map(range => (
+          <div className="flex items-center flex-wrap gap-1 bg-background p-1 rounded-xl border border-border shadow-inner">
+            {(["1M", "3M", "6M", "12M", "YTD", "ALL"] as const).map(range => (
               <button
                 key={range}
                 onClick={() => setDateRange(range)}
                 className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${
                   dateRange === range 
-                    ? "bg-primary text-primary-foreground shadow-md" 
+                    ? "bg-indigo-600 text-white dark:bg-indigo-500 dark:text-white shadow-md ring-2 ring-indigo-500/20 dark:ring-indigo-400/30 font-bold scale-105" 
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
@@ -156,11 +159,11 @@ export default function Reports() {
                 onClick={() => setSelectedAccounts([])}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap border ${
                   selectedAccounts.length === 0
-                    ? "bg-foreground text-background border-foreground shadow-sm"
-                    : "bg-card text-muted-foreground border-border hover:border-muted-foreground"
+                    ? "bg-indigo-600 text-white dark:bg-indigo-500 border-indigo-600 dark:border-indigo-500 shadow-sm"
+                    : "bg-background text-muted-foreground border-border hover:border-muted-foreground"
                 }`}
               >
-                Wszystkie
+                ALL
               </button>
               {allAccounts.map(acc => (
                 <button
@@ -168,11 +171,11 @@ export default function Reports() {
                   onClick={() => toggleAccount(acc.id.toString())}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap border flex items-center gap-1.5 ${
                     selectedAccounts.includes(acc.id.toString())
-                      ? "bg-indigo-500/10 text-indigo-500 border-indigo-500/30"
-                      : "bg-card text-muted-foreground border-border hover:border-muted-foreground"
+                      ? "bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/50 shadow-inner"
+                      : "bg-background text-muted-foreground border-border hover:border-muted-foreground"
                   }`}
                 >
-                  <div className={`w-2 h-2 rounded-full ${selectedAccounts.includes(acc.id.toString()) ? 'bg-indigo-500' : 'bg-muted-foreground/30'}`}></div>
+                  <div className={`w-2 h-2 rounded-full ${selectedAccounts.includes(acc.id.toString()) ? 'bg-indigo-600 dark:bg-indigo-400' : 'bg-muted-foreground/30'}`}></div>
                   {acc.name}
                 </button>
               ))}
