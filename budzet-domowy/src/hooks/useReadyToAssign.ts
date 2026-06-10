@@ -55,13 +55,13 @@ export function useReadyToAssign() {
     }
 
     const latestState = states[latestMonth] || {};
-    let sumPositiveAvailable = 0;
+    let sumAvailable = 0;
     for (const cat of expenseCategories) {
       const avail = latestState[cat.id]?.available || 0;
-      if (avail > 0) sumPositiveAvailable += avail;
+      sumAvailable += avail;
     }
 
-    return totalAccounts - sumPositiveAvailable;
+    return totalAccounts - sumAvailable;
   }, [accounts, categories, transactions, budgets]);
 
   return readyToAssign;

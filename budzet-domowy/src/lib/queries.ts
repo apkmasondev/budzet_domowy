@@ -131,6 +131,17 @@ export const useAddAccount = () => {
   });
 };
 
+export const useUpdateAccount = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number, payload: Parameters<typeof api.updateAccount>[1] }) => api.updateAccount(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
+};
+
 export const useDeleteAccount = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -166,6 +177,16 @@ export const useCreateGoal = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: api.createGoal,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["goals"] });
+    },
+  });
+};
+
+export const useUpdateGoal = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number, payload: Parameters<typeof api.updateGoal>[1] }) => api.updateGoal(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["goals"] });
     },
@@ -223,6 +244,16 @@ export const useAddRecurring = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recurrings"] });
       queryClient.invalidateQueries({ queryKey: ["recurringSuggestions"] });
+    },
+  });
+};
+
+export const useUpdateRecurring = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number, payload: Parameters<typeof api.updateRecurring>[1] }) => api.updateRecurring(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recurrings"] });
     },
   });
 };

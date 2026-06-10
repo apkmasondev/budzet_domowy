@@ -2,17 +2,20 @@ import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useFinanceStore } from "../store/useFinanceStore";
 import { useDialogStore } from "../store/useDialogStore";
-import { Plus, Wallet, Trash2, Banknote, CreditCard, PiggyBank } from "lucide-react";
-import { useAccounts, useAddAccount, useDeleteAccount } from "../lib/queries";
+import { Plus, Wallet, Trash2, Banknote, CreditCard, PiggyBank, Pencil } from "lucide-react";
+import { useAccounts, useAddAccount, useDeleteAccount, useUpdateAccount } from "../lib/queries";
 
 export default function Accounts() {
   const { privacyMode } = useFinanceStore();
   const { data: accounts = [], isLoading } = useAccounts();
   const addAccountMutation = useAddAccount();
+  const updateAccountMutation = useUpdateAccount();
   const deleteAccountMutation = useDeleteAccount();
   const { showAlert, showConfirm } = useDialogStore();
   const location = useLocation();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingColor, setEditingColor] = useState<string | undefined>(undefined);
   const [name, setName] = useState("");
   const [balance, setBalance] = useState("0");
   const [type, setType] = useState("bank");
@@ -23,21 +26,70 @@ export default function Accounts() {
     }
   }, [location]);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const openCreateModal = () => {
+    setEditingId(null);
+    setName("");
+    setBalance("0");
+    setType("bank");
+    setEditingColor(undefined);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (acc: any) => {
+    setEditingId(acc.id);
+    setName(acc.name);
+    setBalance(acc.balance.toString());
+    setType(acc.type);
+    setEditingColor(acc.color);
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (editingId) {
+      const originalAccount = accounts.find(a => a.id === editingId);
+      if (originalAccount && originalAccount.balance !== parseFloat(balance)) {
+        showConfirm(
+          "Zmiana salda konta", 
+          "Zmieniasz stan konta ręcznie. Zalecane jest korzystanie z transakcji w celu zachowania ciągłości historii. Czy na pewno chcesz nadpisać saldo?", 
+          () => executeSubmit()
+        );
+      } else {
+        executeSubmit();
+      }
+    } else {
+      executeSubmit();
+    }
+  };
+
+  const executeSubmit = async () => {
     try {
-      await addAccountMutation.mutateAsync({
-        name,
-        type: type,
-        currency: "PLN",
-        balance: parseFloat(balance),
-        color: "#3b82f6"
-      });
+      if (editingId) {
+        await updateAccountMutation.mutateAsync({
+          id: editingId,
+          payload: {
+            name,
+            type: type,
+            currency: "PLN",
+            balance: parseFloat(balance),
+            color: editingColor || "#3b82f6"
+          }
+        });
+      } else {
+        await addAccountMutation.mutateAsync({
+          name,
+          type: type,
+          currency: "PLN",
+          balance: parseFloat(balance),
+          color: "#3b82f6"
+        });
+      }
       setIsModalOpen(false);
+      setEditingId(null);
       setName("");
       setBalance("0");
     } catch (error: any) {
-      showAlert("Błąd Tworzenia Konta", error.toString());
+      showAlert(editingId ? "Błąd Edycji Konta" : "Błąd Tworzenia Konta", error.toString());
     }
   };
 
@@ -83,7 +135,7 @@ export default function Accounts() {
       <div className="flex justify-between items-center relative z-10">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Konta i Portfele</h1>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={openCreateModal}
           className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg font-medium transition-colors shadow-sm"
         >
           <Plus size={18} /> Nowe konto
@@ -99,19 +151,24 @@ export default function Accounts() {
             <div className="absolute -right-8 -top-8 opacity-10 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500">
               {style.watermark}
             </div>
+            <div className="absolute top-4 right-4 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all z-20 print:hidden">
+              <button onClick={() => openEditModal(acc)} className="text-muted-foreground hover:text-foreground hover:bg-muted transition-all p-2 rounded-xl">
+                <Pencil size={18} />
+              </button>
+              <button onClick={() => handleDelete(acc.id, acc.name)} className="text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all p-2 rounded-xl">
+                <Trash2 size={18} />
+              </button>
+            </div>
             <div className="flex justify-between items-start relative z-10">
               <div className="flex items-center gap-4">
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${style.bg}`}>
                   {style.icon}
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg text-foreground">{acc.name}</h3>
+                  <h3 className="font-bold text-lg text-foreground pr-16">{acc.name}</h3>
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{acc.type === 'cash' ? 'Gotówka' : acc.type === 'bank' ? 'Konto Bankowe' : 'Oszczędności'}</p>
                 </div>
               </div>
-              <button onClick={() => handleDelete(acc.id, acc.name)} className="absolute top-4 right-4 text-muted-foreground opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-red-500 hover:bg-red-500/10 transition-all p-2 rounded-xl z-20">
-                <Trash2 size={18} />
-              </button>
             </div>
             <div className="mt-4 relative z-10">
               <p className="text-4xl font-black text-foreground tracking-tight">
@@ -125,8 +182,8 @@ export default function Accounts() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4" onClick={() => setIsModalOpen(false)}>
           <div className="bg-[var(--color-card)] border border-border/50 p-8 rounded-2xl shadow-2xl shadow-primary/5 w-full max-w-md animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <h2 className="text-2xl font-bold mb-6 tracking-tight">Dodaj nowe konto</h2>
-            <form onSubmit={handleCreate} className="flex flex-col gap-4">
+            <h2 className="text-2xl font-bold mb-6 tracking-tight">{editingId ? 'Edytuj konto' : 'Dodaj nowe konto'}</h2>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium">Nazwa konta</label>
                 <input required value={name} onChange={e => setName(e.target.value)} className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="np. PKO Bank, Portfel" />
@@ -140,7 +197,7 @@ export default function Accounts() {
                 </select>
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">Saldo początkowe (PLN)</label>
+                <label className="text-sm font-medium">{editingId ? 'Saldo konta (PLN)' : 'Saldo początkowe (PLN)'}</label>
                 <input required type="number" step="0.01" value={balance} onChange={e => setBalance(e.target.value)} className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div className="flex justify-end gap-3 mt-4">

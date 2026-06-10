@@ -11,7 +11,7 @@ export default function GlobalTransactionModal() {
   const addTransactionMutation = useAddTransaction();
   const updateTransactionMutation = useUpdateTransaction();
   const [amount, setAmount] = useState("");
-  const [type, setType] = useState("expense");
+  const [type, setType] = useState<"income" | "expense" | "transfer">("expense");
   const [accountId, setAccountId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [description, setDescription] = useState("");

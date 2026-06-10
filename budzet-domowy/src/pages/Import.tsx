@@ -26,7 +26,7 @@ export default function Import() {
   const [importResult, setImportResult] = useState<{success: number, total: number} | null>(null);
   const [step, setStep] = useState<1 | 2 | 3>(1); // 1: drop, 2: map cols, 3: map categories
   
-  const [uniqueBankCategories, setUniqueBankCategories] = useState<string[]>([]);
+  const [uniqueBankCategories, setUniqueBankCategories] = useState<{name: string, type: string}[]>([]);
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -131,42 +131,54 @@ export default function Import() {
     return map;
   }, [transactions]);
 
-  const parseAmount = (val: string): number => {
-    if (!val) return 0;
-    // Remove spaces, replace comma with dot
+  const parseAmount = (val: string): number | null => {
+    if (!val) return null;
     const clean = val.replace(/\s/g, '').replace(',', '.');
-    // Remove non-numeric chars except dot and minus
     const num = parseFloat(clean.replace(/[^\d.-]/g, ''));
-    return isNaN(num) ? 0 : num;
+    return isNaN(num) ? null : num;
   };
 
-  const parseDate = (val: string): string => {
-    if (!val) return new Date().toISOString().split('T')[0];
-    // Polish formats: DD.MM.YYYY, DD-MM-YYYY, YYYY-MM-DD
-    if (val.match(/^\d{4}-\d{2}-\d{2}/)) return val.substring(0, 10);
-    const parts = val.split(/[./-]/);
-    if (parts.length >= 3) {
-      if (parts[2].length === 4) {
-        // DD.MM.YYYY
-        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-      }
+  const parseDate = (val: string): string | null => {
+    if (!val) return null;
+    if (val.match(/^\d{4}-\d{2}-\d{2}/)) {
+      const d = new Date(val.substring(0, 10));
+      return isNaN(d.getTime()) ? null : val.substring(0, 10);
     }
-    return new Date().toISOString().split('T')[0]; // fallback
+    const parts = val.split(/[./-]/);
+    if (parts.length >= 3 && parts[2].length === 4) {
+      const d = new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`);
+      if (!isNaN(d.getTime())) return d.toISOString().substring(0, 10);
+    }
+    return null;
   };
 
   const handlePrepareCategories = () => {
     if (!accountId || !dateColumn || !amountColumn || !descColumn) return;
     
     if (catColumn) {
-      const uniqueCats = new Set<string>();
+      const bankCatTypes = new Map<string, string>();
       csvData.forEach(row => {
         const catVal = row[catColumn];
-        if (catVal && catVal.trim()) uniqueCats.add(catVal.trim());
+        if (catVal && catVal.trim()) {
+          const bankCat = catVal.trim();
+          const parsedAmount = parseAmount(row[amountColumn] as string);
+          if (parsedAmount !== null && parsedAmount !== 0) {
+             const isIncome = parsedAmount > 0;
+             const newType = isIncome ? "income" : "expense";
+             const currentType = bankCatTypes.get(bankCat);
+             if (!currentType) {
+                bankCatTypes.set(bankCat, newType);
+             } else if (currentType !== newType) {
+                bankCatTypes.set(bankCat, "both");
+             }
+          } else if (!bankCatTypes.has(bankCat)) {
+             bankCatTypes.set(bankCat, "both");
+          }
+        }
       });
-      const uniqueCatsArr = Array.from(uniqueCats).sort();
-      setUniqueBankCategories(uniqueCatsArr);
+      const uniqueCatsArr = Array.from(bankCatTypes.keys()).sort();
+      setUniqueBankCategories(uniqueCatsArr.map(name => ({ name, type: bankCatTypes.get(name) || "both" })));
 
-      // Algorytm propozycji przypisania
       const initialMap: Record<string, string> = {};
       uniqueCatsArr.forEach(bankCat => {
         const lowerCat = bankCat.toLowerCase();
@@ -198,7 +210,7 @@ export default function Import() {
 
       setStep(3);
     } else {
-      handleImport(); // Skip step 3 if no category column selected
+      handleImport();
     }
   };
 
@@ -210,8 +222,14 @@ export default function Import() {
     const payloads = csvData.map((row) => {
       const amountStr = row[amountColumn] as string;
       const parsedAmount = parseAmount(amountStr);
+      if (parsedAmount === null) return null;
+
+      const parsedDate = parseDate(row[dateColumn] as string);
+      if (!parsedDate) return null;
+
       const isIncome = parsedAmount > 0;
       const absAmount = Math.abs(parsedAmount);
+      if (absAmount === 0) return null;
       
       const rawDesc = (row[descColumn] as string) || "Brak tytułu";
       const desc = rawDesc.trim();
@@ -224,22 +242,25 @@ export default function Import() {
          if (mappedCatId) catId = parseInt(mappedCatId);
       }
       
-      // Fallback do historyLookup jeśli nie zmapowano z banku
       if (!catId) {
         catId = categoryLookup.get(desc.toLowerCase());
       }
 
+      if (catId && !categories.some(c => c.id === catId)) {
+        catId = undefined;
+      }
+
       return {
         account_id: parseInt(accountId),
-        category_id: catId || undefined,
+        category_id: catId,
         amount: absAmount,
         type: isIncome ? "income" : "expense",
         description: desc || null,
-        date: parseDate(row[dateColumn] as string),
+        date: parsedDate,
         transfer_to_id: undefined,
         tags: []
       };
-    }).filter(p => p.amount > 0); // Ignore exactly 0.00 entries
+    }).filter(p => p !== null);
 
     try {
       await bulkAddMutation.mutateAsync(payloads as any);
@@ -425,7 +446,7 @@ export default function Import() {
             <p className="text-sm text-muted-foreground mb-6">Poniżej znajdują się wszystkie unikalne kategorie wykryte w Twoim wyciągu. Przypisz je do swoich kategorii z Domowego Budżetu, aby zachować porządek od razu podczas importu.</p>
             
             <div className="space-y-4">
-              {uniqueBankCategories.map(bankCat => (
+              {uniqueBankCategories.map(({name: bankCat, type: bankCatType}) => (
                 <div key={bankCat} className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border border-border rounded-xl bg-muted/20 hover:bg-muted/40 transition-colors">
                   <div className="font-medium text-foreground">{bankCat}</div>
                   <select 
@@ -434,7 +455,9 @@ export default function Import() {
                     onChange={e => setCategoryMap(prev => ({ ...prev, [bankCat]: e.target.value }))}
                   >
                     <option value="" className="bg-background text-foreground">Automatycznie / Inne</option>
-                    {categories.map(c => <option key={c.id} value={c.id} className="bg-background text-foreground">{c.name}</option>)}
+                    {categories
+                      .filter(c => bankCatType === "both" || c.type === "both" || c.type === bankCatType)
+                      .map(c => <option key={c.id} value={c.id} className="bg-background text-foreground">{c.name}</option>)}
                   </select>
                 </div>
               ))}

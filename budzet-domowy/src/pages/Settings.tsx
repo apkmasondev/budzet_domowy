@@ -9,9 +9,9 @@ import { useCategories, useCreateCategory, useDeleteCategory } from "../lib/quer
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function Settings() {
-  const { 
-    hasPin, setupPin, removePin, 
-    privacyMode, setPrivacyMode, 
+  const {
+    hasPin, setupPin, removePin,
+    privacyMode, setPrivacyMode,
     factoryReset
   } = useFinanceStore();
   const { data: categories = [] } = useCategories();
@@ -28,7 +28,7 @@ export default function Settings() {
   // Modal states
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [newPin, setNewPin] = useState("");
-  
+
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [catName, setCatName] = useState("");
   const [catType, setCatType] = useState("expense");
@@ -72,7 +72,7 @@ export default function Settings() {
       if (!filePath) return;
 
       showConfirm(
-        "Import Bazy Danych", 
+        "Import Bazy Danych",
         "UWAGA: Wgranie nowej bazy bezpowrotnie nadpisze wszystkie aktualne dane (konta, cele, transakcje)! Czy chcesz kontynuować?",
         async () => {
           setIsImporting(true);
@@ -105,8 +105,8 @@ export default function Settings() {
 
   const handleRemovePin = () => {
     showConfirm(
-      "Usuwanie PINu", 
-      "Czy na pewno chcesz usunąć zabezpieczenie PIN? Każdy będzie miał wolny dostęp do aplikacji.", 
+      "Usuwanie PINu",
+      "Czy na pewno chcesz usunąć zabezpieczenie PIN? Każdy będzie miał wolny dostęp do aplikacji.",
       async () => {
         await removePin();
         showMessage('success', 'Zabezpieczenie PIN zostało usunięte.');
@@ -136,8 +136,8 @@ export default function Settings() {
 
   const handleFactoryReset = () => {
     showConfirm(
-      "Twardy Reset Aplikacji", 
-      "UWAGA: Ta operacja BEZPOWROTNIE usunie wszystkie konta, transakcje, subskrypcje, budżety oraz własne kategorie! Aplikacja zostanie zresetowana do ustawień fabrycznych. Jesteś absolutnie pewien?", 
+      "Twardy Reset Aplikacji",
+      "UWAGA: Ta operacja BEZPOWROTNIE usunie wszystkie konta, transakcje, subskrypcje, budżety oraz własne kategorie! Aplikacja zostanie zresetowana do ustawień fabrycznych. Jesteś absolutnie pewien?",
       async () => {
         await factoryReset();
         queryClient.clear();
@@ -152,10 +152,10 @@ export default function Settings() {
   return (
     <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full max-w-7xl mx-auto">
       <div className="flex justify-between items-center">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Ustawienia</h1>
-        <p className="text-muted-foreground mt-1 text-sm">Zarządzaj bezpieczeństwem i personalizacją aplikacji.</p>
-      </div>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Ustawienia</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Zarządzaj bezpieczeństwem i personalizacją aplikacji.</p>
+        </div>
       </div>
 
       {message && (
@@ -168,7 +168,7 @@ export default function Settings() {
       {/* Wygląd i Motyw */}
       <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
         <div className="p-6 border-b border-border bg-muted/20">
-          <h2 className="text-xl font-semibold flex items-center gap-2"><Palette size={20} className="text-primary"/> Wygląd i Motyw</h2>
+          <h2 className="text-xl font-semibold flex items-center gap-2"><Palette size={20} className="text-primary" /> Wygląd i Motyw</h2>
         </div>
         <div className="p-6 flex flex-col gap-6">
           <div className="flex items-center justify-between">
@@ -177,21 +177,21 @@ export default function Settings() {
               <p className="text-sm text-muted-foreground mt-1">Wybierz preferowany wygląd interfejsu</p>
             </div>
             <div className="flex bg-muted/50 p-1 rounded-lg border border-border">
-              <button 
+              <button
                 onClick={() => setTheme("light")}
                 className={`p-2 rounded-md transition-all ${theme === "light" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 title="Jasny"
               >
                 <Sun size={18} />
               </button>
-              <button 
+              <button
                 onClick={() => setTheme("dark")}
                 className={`p-2 rounded-md transition-all ${theme === "dark" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 title="Ciemny"
               >
                 <Moon size={18} />
               </button>
-              <button 
+              <button
                 onClick={() => setTheme("system")}
                 className={`p-2 rounded-md transition-all ${theme === "system" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 title="Systemowy"
@@ -206,7 +206,7 @@ export default function Settings() {
       {/* Bezpieczeństwo i Prywatność */}
       <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
         <div className="p-6 border-b border-border bg-muted/20">
-          <h2 className="text-xl font-semibold flex items-center gap-2"><Shield size={20} className="text-primary"/> Bezpieczeństwo i Prywatność</h2>
+          <h2 className="text-xl font-semibold flex items-center gap-2"><Shield size={20} className="text-primary" /> Bezpieczeństwo i Prywatność</h2>
         </div>
         <div className="p-6 flex flex-col gap-6">
           {/* PIN */}
@@ -231,7 +231,7 @@ export default function Settings() {
           {/* Privacy Mode */}
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-medium text-foreground flex items-center gap-2">Tryb Prywatności <EyeOff size={16} className="text-muted-foreground"/></h3>
+              <h3 className="font-medium text-foreground flex items-center gap-2">Tryb Prywatności <EyeOff size={16} className="text-muted-foreground" /></h3>
               <p className="text-sm text-muted-foreground mt-1">Ukrywaj wszystkie salda i kwoty transakcji na ekranach (zamazane gwiazdkami).</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -245,23 +245,23 @@ export default function Settings() {
       {/* Kategorie */}
       <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
         <div className="p-6 border-b border-border bg-muted/20">
-          <h2 className="text-xl font-semibold flex items-center gap-2"><Tag size={20} className="text-primary"/> Zarządzanie Kategoriami</h2>
+          <h2 className="text-xl font-semibold flex items-center gap-2"><Tag size={20} className="text-primary" /> Zarządzanie Kategoriami</h2>
         </div>
         <div className="p-6 flex flex-col gap-6">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">Dodawaj własne tagi lub usuwaj te, których nie używasz.</p>
+            <p className="text-sm text-muted-foreground">Dodawaj własne kategorie lub usuwaj te, których nie używasz.</p>
             <button onClick={() => setIsCategoryModalOpen(true)} className="border border-border bg-card hover:bg-muted text-foreground px-5 py-2 rounded-xl font-medium transition-all shadow-sm text-sm">
               Dodaj kategorię
             </button>
           </div>
-          
+
           <div className="flex flex-wrap gap-3 mt-2">
             {categories.map(cat => (
               <div key={cat.id} className="flex items-center gap-2 bg-background border border-border px-3 py-1.5 rounded-lg text-sm group">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color || '#6366f1' }}></div>
                 <span>{cat.name}</span>
-                <button 
-                  onClick={() => handleDeleteCategory(cat.id, cat.name)} 
+                <button
+                  onClick={() => handleDeleteCategory(cat.id, cat.name)}
                   className="ml-2 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <Trash2 size={14} />
@@ -320,15 +320,15 @@ export default function Settings() {
           <div className="bg-[var(--color-card)] border border-border/50 p-8 rounded-2xl shadow-2xl w-full max-w-sm animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-bold mb-4">Ustaw nowy PIN</h2>
             <form onSubmit={handleSetupPin}>
-              <input 
-                type="password" 
-                required 
+              <input
+                type="password"
+                required
                 maxLength={6}
                 pattern="[0-9]*"
-                value={newPin} 
-                onChange={e => setNewPin(e.target.value)} 
-                className="w-full bg-background border border-border rounded-lg px-3 py-3 text-center text-2xl tracking-[1em] focus:outline-none focus:ring-2 focus:ring-primary mb-6" 
-                placeholder="****" 
+                value={newPin}
+                onChange={e => setNewPin(e.target.value)}
+                className="w-full bg-background border border-border rounded-lg px-3 py-3 text-center text-2xl tracking-[1em] focus:outline-none focus:ring-2 focus:ring-primary mb-6"
+                placeholder="****"
               />
               <div className="flex justify-end gap-3">
                 <button type="button" onClick={() => setIsPinModalOpen(false)} className="px-4 py-2 text-sm text-muted-foreground">Anuluj</button>
@@ -345,12 +345,12 @@ export default function Settings() {
           <div className="bg-[var(--color-card)] border border-border/50 p-8 rounded-2xl shadow-2xl w-full max-w-sm animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-bold mb-4">Nowa kategoria</h2>
             <form onSubmit={handleCreateCategory} className="flex flex-col gap-4">
-              <input 
-                required 
-                value={catName} 
-                onChange={e => setCatName(e.target.value)} 
-                className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" 
-                placeholder="Nazwa, np. Netflix" 
+              <input
+                required
+                value={catName}
+                onChange={e => setCatName(e.target.value)}
+                className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Nazwa, np. Netflix"
               />
               <select value={catType} onChange={e => setCatType(e.target.value)} className="bg-background border border-border rounded-lg px-3 py-2 text-sm">
                 <option value="expense">Wydatek</option>

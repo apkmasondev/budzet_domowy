@@ -1,20 +1,23 @@
 import { useState } from "react";
 import { useDialogStore } from "../store/useDialogStore";
-import { Plus, Target, Wallet, Trash2, AlertTriangle, Trophy } from "lucide-react";
-import { useGoals, useAccounts, useCreateGoal, useDeleteGoal, useAddToGoal } from "../lib/queries";
+import { Plus, Target, Wallet, Trash2, AlertTriangle, Trophy, Pencil } from "lucide-react";
+import { useGoals, useAccounts, useCreateGoal, useDeleteGoal, useAddToGoal, useUpdateGoal } from "../lib/queries";
+
 export default function Goals() {
   const { data: goals = [], isLoading } = useGoals();
   const { data: accounts = [] } = useAccounts();
   const createGoalMutation = useCreateGoal();
+  const updateGoalMutation = useUpdateGoal();
   const deleteGoalMutation = useDeleteGoal();
   const addToGoalMutation = useAddToGoal();
-  const { showConfirm } = useDialogStore();
+  const { showConfirm, showAlert } = useDialogStore();
 
-  
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [currentAmount, setCurrentAmount] = useState("");
   
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
@@ -22,19 +25,54 @@ export default function Goals() {
   const [accountId, setAccountId] = useState("");
   const [pendingOverdraft, setPendingOverdraft] = useState<{ amount: number, accountName: string } | null>(null);
 
-  const handleCreateGoal = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await createGoalMutation.mutateAsync({
-      name,
-      target_amount: parseFloat(targetAmount),
-      deadline: deadline || undefined,
-      icon: "Target",
-      color: "#8b5cf6"
-    });
-    setIsCreateModalOpen(false);
+  const openCreateModal = () => {
+    setEditingId(null);
     setName("");
     setTargetAmount("");
     setDeadline("");
+    setCurrentAmount("0");
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (goal: any) => {
+    setEditingId(goal.id);
+    setName(goal.name);
+    setTargetAmount(goal.target_amount.toString());
+    setCurrentAmount(goal.current_amount.toString());
+    setDeadline(goal.deadline || "");
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingId) {
+        await updateGoalMutation.mutateAsync({
+          id: editingId,
+          payload: {
+            name,
+            target_amount: parseFloat(targetAmount),
+            current_amount: parseFloat(currentAmount),
+            deadline: deadline || undefined,
+          }
+        });
+      } else {
+        await createGoalMutation.mutateAsync({
+          name,
+          target_amount: parseFloat(targetAmount),
+          deadline: deadline || undefined,
+          icon: "Target",
+          color: "#8b5cf6"
+        });
+      }
+      setIsModalOpen(false);
+      setEditingId(null);
+      setName("");
+      setTargetAmount("");
+      setDeadline("");
+    } catch (error: any) {
+      showAlert(editingId ? "Błąd Edycji Celu" : "Błąd Tworzenia Celu", error.toString());
+    }
   };
 
   const executeDeposit = async (parsedAmount: number) => {
@@ -81,7 +119,7 @@ export default function Goals() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">Cele oszczędnościowe</h1>
         <button 
-          onClick={() => setIsCreateModalOpen(true)}
+          onClick={openCreateModal}
           className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm"
         >
           <Plus size={16} /> Nowy cel
@@ -107,16 +145,18 @@ export default function Goals() {
                     {isCompleted ? <Trophy size={24} /> : <Target size={24} />}
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg text-foreground">{goal.name}</h3>
+                    <h3 className="font-bold text-lg text-foreground pr-8">{goal.name}</h3>
                     {goal.deadline && <p className="text-xs font-medium text-muted-foreground">Do: {goal.deadline}</p>}
                   </div>
                 </div>
-                <button 
-                  onClick={() => handleDelete(goal.id, goal.name)}
-                  className="text-muted-foreground opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-red-500 hover:bg-red-500/10 transition-all p-2 rounded-xl z-20 print:hidden"
-                >
-                  <Trash2 size={18} />
-                </button>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => openEditModal(goal)} className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted">
+                    <Pencil size={16} />
+                  </button>
+                  <button onClick={() => handleDelete(goal.id, goal.name)} className="text-muted-foreground hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-500/10">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
               
               <div className="mt-auto relative z-10">
@@ -126,15 +166,12 @@ export default function Goals() {
                 </div>
                 <div className="w-full bg-muted/50 rounded-full h-3 mb-6 overflow-hidden border border-border/50 shadow-inner">
                   <div 
-                    className={`h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden`}
+                    className={`h-full rounded-full transition-all duration-700 ease-out`}
                     style={{ 
                       width: `${Math.max(0, Math.min((Number(goal.current_amount) / Number(goal.target_amount)) * 100, 100)) || 0}%`, 
                       backgroundColor: isCompleted ? '#10b981' : (goal.color || 'var(--color-primary)')
                     }}
-                  >
-                    {/* Połysk na pasku */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-full h-full animate-[shimmer_2s_infinite]"></div>
-                  </div>
+                  />
                 </div>
                 
                 <button 
@@ -150,11 +187,11 @@ export default function Goals() {
         })}
       </div>
 
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4" onClick={() => setIsCreateModalOpen(false)}>
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4" onClick={() => setIsModalOpen(false)}>
           <div className="bg-[var(--color-card)] border border-border/50 p-8 rounded-2xl shadow-2xl shadow-primary/5 w-full max-w-md animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <h2 className="text-2xl font-bold mb-6 tracking-tight">Nowy cel oszczędnościowy</h2>
-            <form onSubmit={handleCreateGoal} className="flex flex-col gap-4">
+            <h2 className="text-2xl font-bold mb-6 tracking-tight">{editingId ? "Edytuj cel" : "Nowy cel oszczędnościowy"}</h2>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium">Nazwa celu</label>
                 <input required type="text" value={name} onChange={e => setName(e.target.value)} className="bg-background border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="np. Wyjazd w góry" />
@@ -168,7 +205,7 @@ export default function Goals() {
                 <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} className="bg-background border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
               </div>
               <div className="flex justify-end gap-3 mt-4">
-                <button type="button" onClick={() => setIsCreateModalOpen(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Anuluj</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Anuluj</button>
                 <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90">Utwórz cel</button>
               </div>
             </form>

@@ -5,6 +5,8 @@ import "./index.css";
 import App from "./App";
 import { ThemeProvider } from "./store/ThemeProvider";
 
+import { ErrorBoundary } from "./components/ErrorBoundary";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -16,10 +18,12 @@ const queryClient = new QueryClient({
 
 createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="dark" storageKey="budzet-ui-theme">
-        <App />
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider defaultTheme="dark" storageKey="budzet-ui-theme">
+          <App />
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useDialogStore } from "../store/useDialogStore";
-import { Plus, Repeat, Trash2, Calendar, CreditCard, Layers, Bot, EyeOff } from "lucide-react";
-import { useCategories, useAccounts, useRecurrings, useAddRecurring, useDeleteRecurring, useRecurringSuggestions, useIgnoreSubscriptionSuggestion } from "../lib/queries";
+import { Plus, Repeat, Trash2, Calendar, CreditCard, Layers, Bot, EyeOff, Pencil } from "lucide-react";
+import { useCategories, useAccounts, useRecurrings, useAddRecurring, useUpdateRecurring, useDeleteRecurring, useRecurringSuggestions, useIgnoreSubscriptionSuggestion } from "../lib/queries";
 
 export default function Subscriptions() {
   const { data: recurrings = [], isLoading } = useRecurrings();
@@ -9,12 +9,14 @@ export default function Subscriptions() {
   const { data: accounts = [] } = useAccounts();
   const { data: suggestions = [] } = useRecurringSuggestions();
   const addRecurringMutation = useAddRecurring();
+  const updateRecurringMutation = useUpdateRecurring();
   const deleteRecurringMutation = useDeleteRecurring();
   const ignoreSuggestionMutation = useIgnoreSubscriptionSuggestion();
   
-  const { showConfirm } = useDialogStore();
+  const { showConfirm, showAlert } = useDialogStore();
   const expenseCategories = categories.filter(c => c.type === "expense" || c.type === "both");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [activeSuggestion, setActiveSuggestion] = useState<string | null>(null);
   
   const defaultFormData = {
@@ -50,25 +52,50 @@ export default function Subscriptions() {
     setIsModalOpen(true);
   };
 
+  const openEditModal = (rec: any) => {
+    setEditingId(rec.id);
+    setFormData({
+      name: rec.name,
+      amount: rec.amount.toString(),
+      category_id: rec.category_id ? rec.category_id.toString() : "",
+      account_id: rec.account_id ? rec.account_id.toString() : "",
+      frequency: rec.frequency,
+      next_date: rec.next_date,
+      day_of_month: rec.day_of_month.toString()
+    });
+    setIsModalOpen(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await addRecurringMutation.mutateAsync({
-      name: formData.name,
-      amount: parseFloat(formData.amount),
-      category_id: formData.category_id ? parseInt(formData.category_id) : undefined,
-      account_id: formData.account_id ? parseInt(formData.account_id) : undefined,
-      frequency: formData.frequency,
-      next_date: formData.next_date,
-      day_of_month: parseInt(formData.day_of_month)
-    });
-    
-    if (activeSuggestion) {
-      ignoreSuggestionMutation.mutate(activeSuggestion);
+    try {
+      const payload = {
+        name: formData.name,
+        amount: parseFloat(formData.amount),
+        category_id: formData.category_id ? parseInt(formData.category_id) : undefined,
+        account_id: formData.account_id ? parseInt(formData.account_id) : undefined,
+        frequency: formData.frequency,
+        next_date: formData.next_date,
+        day_of_month: parseInt(formData.day_of_month)
+      };
+
+      if (editingId) {
+        await updateRecurringMutation.mutateAsync({ id: editingId, payload });
+      } else {
+        await addRecurringMutation.mutateAsync(payload);
+      }
+      
+      if (activeSuggestion) {
+        ignoreSuggestionMutation.mutate(activeSuggestion);
+      }
+      
+      setIsModalOpen(false);
+      setEditingId(null);
+      setActiveSuggestion(null);
+      setFormData(defaultFormData);
+    } catch (error) {
+      showAlert("Błąd", "Nie udało się zapisać subskrypcji.");
     }
-    
-    setIsModalOpen(false);
-    setActiveSuggestion(null);
-    setFormData(defaultFormData);
   };
 
   return (
@@ -81,7 +108,7 @@ export default function Subscriptions() {
           <p className="text-muted-foreground mt-1">Zarządzaj płatnościami cyklicznymi, które księgują się same.</p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => { setEditingId(null); setFormData(defaultFormData); setIsModalOpen(true); }}
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-xl font-medium hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
         >
           <Plus size={20} />
@@ -140,12 +167,20 @@ export default function Subscriptions() {
                 <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-muted">
                   <Repeat size={24} className="text-muted-foreground" />
                 </div>
-                <button 
-                  onClick={() => showConfirm("Usuwanie subskrypcji", `Czy na pewno chcesz usunąć stałą opłatę "${rec.name}"?`, () => deleteRecurringMutation.mutate(rec.id))}
-                  className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 print:hidden"
-                >
-                  <Trash2 size={18} />
-                </button>
+                <div className="flex gap-1">
+                    <button 
+                      onClick={() => openEditModal(rec)}
+                      className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <Pencil size={18} />
+                    </button>
+                    <button 
+                      onClick={() => showConfirm("Usuwanie subskrypcji", `Czy na pewno chcesz usunąć stałą opłatę "${rec.name}"?`, () => deleteRecurringMutation.mutate(rec.id))}
+                      className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 print:hidden"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                </div>
               </div>
               
               <h3 className="font-bold text-xl mb-1">{rec.name}</h3>
@@ -186,7 +221,7 @@ export default function Subscriptions() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4" onClick={() => { setIsModalOpen(false); setActiveSuggestion(null); }}>
           <div className="bg-[var(--color-card)] border border-border/50 w-full max-w-md rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-border">
-              <h2 className="text-xl font-bold">Nowa Płatność Cykliczna</h2>
+              <h2 className="text-xl font-bold">{editingId ? 'Edytuj subskrypcję' : 'Nowa Płatność Cykliczna'}</h2>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>

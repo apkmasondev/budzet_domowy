@@ -8,7 +8,6 @@ pub mod transactions;
 pub mod budgets;
 pub mod goals;
 pub mod recurring;
-pub mod export_import;
 pub mod settings;
 pub mod migrations;
 pub mod tags;

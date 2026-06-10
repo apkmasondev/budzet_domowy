@@ -30,6 +30,24 @@ pub fn create_goal(conn: &Connection, payload: CreateGoalPayload) -> Result<i64>
     Ok(conn.last_insert_rowid())
 }
 
+#[derive(Deserialize)]
+pub struct UpdateGoalPayload {
+    pub name: String,
+    pub target_amount: f64,
+    pub current_amount: f64,
+    pub deadline: Option<String>,
+    pub icon: Option<String>,
+    pub color: Option<String>,
+}
+
+pub fn update_goal(conn: &Connection, id: i64, payload: UpdateGoalPayload) -> Result<()> {
+    conn.execute(
+        "UPDATE goals SET name = ?1, target_amount = ?2, current_amount = ?3, deadline = ?4, icon = ?5, color = ?6 WHERE id = ?7",
+        params![payload.name, payload.target_amount, payload.current_amount, payload.deadline, payload.icon, payload.color, id],
+    )?;
+    Ok(())
+}
+
 pub fn get_goals(conn: &Connection) -> Result<Vec<Goal>> {
     let mut stmt = conn.prepare("SELECT id, name, target_amount, current_amount, deadline, icon, color, created_at FROM goals ORDER BY created_at DESC")?;
     let iter = stmt.query_map([], |row| {

@@ -25,6 +25,11 @@ pub fn get_migrations() -> Migrations<'static> {
             CREATE INDEX IF NOT EXISTS idx_transactions_category_id ON transactions(category_id);
             ",
         ), // V3 - performance indexes
+        M::up(
+            "
+            CREATE INDEX IF NOT EXISTS idx_transaction_tags_tag_id ON transaction_tags(tag_id);
+            ",
+        ), // V4 - missing tag index
     ])
 }
 

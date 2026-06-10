@@ -4,8 +4,10 @@ import SpendingPieChart from "../components/charts/SpendingPieChart";
 import MonthlyCashFlowChart from "../components/charts/MonthlyCashFlowChart";
 import { useAccounts, useTransactions, useBudgets, useCategories, useRecurrings } from "../lib/queries";
 import { useReadyToAssign } from "../hooks/useReadyToAssign";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { 
     autoProcessedCount, 
     dismissAutoProcessNotification,
@@ -122,7 +124,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8 print:block print:space-y-6">
         
         {/* Ready To Assign Card */}
-        <div className="bg-gradient-to-br from-emerald-500/10 to-indigo-500/10 dark:from-emerald-500/20 dark:to-indigo-500/20 backdrop-blur-xl border border-emerald-500/30 p-6 rounded-2xl shadow-lg relative overflow-hidden group hover:-translate-y-1 transition-all duration-300 print:bg-none print:shadow-none print:border-border print:text-black print:break-inside-avoid">
+        <div onClick={() => navigate('/goals')} className="bg-gradient-to-br from-emerald-500/10 to-indigo-500/10 dark:from-emerald-500/20 dark:to-indigo-500/20 backdrop-blur-xl border border-emerald-500/30 p-6 rounded-2xl shadow-lg relative overflow-hidden group hover:-translate-y-1 transition-all duration-300 print:bg-none print:shadow-none print:border-border print:text-black print:break-inside-avoid cursor-pointer">
           <div className="absolute -right-6 -bottom-6 text-emerald-500/10 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-500 print:hidden">
             <Wallet size={120} strokeWidth={1} />
           </div>
@@ -138,7 +140,7 @@ export default function Dashboard() {
         </div>
 
         {/* Total Balance Card */}
-        <div className="bg-gradient-to-br from-blue-500/5 to-transparent dark:from-blue-500/10 dark:to-card backdrop-blur-md border border-blue-500/10 dark:border-blue-500/20 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-blue-500/30 transition-all duration-300 group relative overflow-hidden print:bg-none print:border-border print:break-inside-avoid">
+        <div onClick={() => navigate('/accounts')} className="bg-gradient-to-br from-blue-500/5 to-transparent dark:from-blue-500/10 dark:to-card backdrop-blur-md border border-blue-500/10 dark:border-blue-500/20 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-blue-500/30 transition-all duration-300 group relative overflow-hidden print:bg-none print:border-border print:break-inside-avoid cursor-pointer">
           <div className="absolute -right-6 -bottom-6 text-blue-500/10 dark:text-blue-400/10 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-500 print:hidden">
             <Wallet size={120} strokeWidth={1} />
           </div>
@@ -157,7 +159,7 @@ export default function Dashboard() {
         </div>
 
         {/* Expenses Card */}
-        <div className="bg-gradient-to-br from-red-500/5 to-transparent dark:from-red-500/10 dark:to-card backdrop-blur-md border border-red-500/10 dark:border-red-500/20 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-red-500/30 transition-all duration-300 group relative overflow-hidden print:bg-none print:border-border print:break-inside-avoid">
+        <div onClick={() => navigate('/transactions')} className="bg-gradient-to-br from-red-500/5 to-transparent dark:from-red-500/10 dark:to-card backdrop-blur-md border border-red-500/10 dark:border-red-500/20 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-red-500/30 transition-all duration-300 group relative overflow-hidden print:bg-none print:border-border print:break-inside-avoid cursor-pointer">
           <div className="absolute -right-8 -bottom-8 text-red-600/10 dark:text-red-400/10 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-500 print:hidden">
             <TrendingDown size={140} strokeWidth={1} />
           </div>
@@ -176,7 +178,7 @@ export default function Dashboard() {
         </div>
 
         {/* Incomes Card */}
-        <div className="bg-gradient-to-br from-emerald-500/5 to-transparent dark:from-emerald-500/10 dark:to-card backdrop-blur-md border border-emerald-500/10 dark:border-emerald-500/20 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-emerald-500/30 transition-all duration-300 group relative overflow-hidden print:bg-none print:border-border print:break-inside-avoid">
+        <div onClick={() => navigate('/transactions')} className="bg-gradient-to-br from-emerald-500/5 to-transparent dark:from-emerald-500/10 dark:to-card backdrop-blur-md border border-emerald-500/10 dark:border-emerald-500/20 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-emerald-500/30 transition-all duration-300 group relative overflow-hidden print:bg-none print:border-border print:break-inside-avoid cursor-pointer">
           <div className="absolute -right-8 -bottom-8 text-emerald-600/10 dark:text-emerald-400/10 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-500 print:hidden">
             <TrendingUp size={140} strokeWidth={1} />
           </div>
@@ -195,7 +197,7 @@ export default function Dashboard() {
         </div>
 
         {/* Subscriptions Card */}
-        <div className="bg-gradient-to-br from-indigo-500/5 to-transparent dark:from-indigo-500/10 dark:to-card backdrop-blur-md border border-indigo-500/10 dark:border-indigo-500/20 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-indigo-500/30 transition-all duration-300 group relative overflow-hidden print:bg-none print:border-border print:break-inside-avoid">
+        <div onClick={() => navigate('/subscriptions')} className="bg-gradient-to-br from-indigo-500/5 to-transparent dark:from-indigo-500/10 dark:to-card backdrop-blur-md border border-indigo-500/10 dark:border-indigo-500/20 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-indigo-500/30 transition-all duration-300 group relative overflow-hidden print:bg-none print:border-border print:break-inside-avoid cursor-pointer">
           <div className="absolute -right-6 -bottom-6 text-indigo-500/10 dark:text-indigo-400/10 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-500 print:hidden">
             <Repeat size={120} strokeWidth={1} />
           </div>

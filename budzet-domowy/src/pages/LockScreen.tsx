@@ -6,8 +6,14 @@ export default function LockScreen() {
   const { unlock } = useFinanceStore();
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  const isLockedOut = lockoutUntil !== null && Date.now() < lockoutUntil;
 
   const handleKeyPress = (num: number) => {
+    if (isLockedOut) return;
     if (pin.length < 6) {
       setPin(prev => prev + num);
       setError(false);
@@ -15,21 +21,47 @@ export default function LockScreen() {
   };
 
   const handleBackspace = () => {
+    if (isLockedOut) return;
     setPin(prev => prev.slice(0, -1));
     setError(false);
   };
 
   const handleSubmit = async () => {
+    if (isLockedOut) return;
     if (pin.length < 4) return;
     const success = await unlock(pin);
     if (!success) {
       setError(true);
       setPin("");
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
+      if (newAttempts >= 5) {
+        setLockoutUntil(Date.now() + 30000); // 30 sekund blokady
+        setAttempts(0);
+      }
+    } else {
+      setAttempts(0);
     }
   };
 
   useEffect(() => {
+    if (lockoutUntil) {
+      const interval = setInterval(() => {
+        const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+        if (remaining <= 0) {
+          setLockoutUntil(null);
+          setTimeLeft(0);
+        } else {
+          setTimeLeft(remaining);
+        }
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [lockoutUntil]);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isLockedOut) return;
       if (e.key >= '0' && e.key <= '9') {
         handleKeyPress(parseInt(e.key));
       } else if (e.key === 'Backspace') {
@@ -41,7 +73,7 @@ export default function LockScreen() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pin]); // Rebind when pin changes so handleKeyPress uses latest state
+  }, [pin, isLockedOut, attempts]); // Fixed stale closure by adding proper dependencies
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/90 backdrop-blur-xl animate-in fade-in duration-500">
@@ -52,7 +84,7 @@ export default function LockScreen() {
         
         <h1 className="text-2xl font-bold mb-2">Aplikacja Zablokowana</h1>
         <p className="text-muted-foreground text-center mb-8 text-sm">
-          Podaj swój kod PIN, aby uzyskać dostęp do finansów.
+          {isLockedOut ? <span className="text-red-500 font-medium">Zbyt wiele prób. Spróbuj ponownie za {timeLeft}s.</span> : "Podaj swój kod PIN, aby uzyskać dostęp do finansów."}
         </p>
 
         {/* Wskaźniki PINu */}
@@ -65,7 +97,7 @@ export default function LockScreen() {
           ))}
         </div>
 
-        {error && (
+        {error && !isLockedOut && (
           <div className="flex items-center gap-2 text-red-500 text-sm mb-4 animate-in shake">
             <ShieldAlert size={16} /> Błędny kod PIN
           </div>

@@ -13,7 +13,7 @@ export interface Category {
   name: string;
   icon?: string;
   color?: string;
-  type: string;
+  type: "income" | "expense" | "transfer" | "both";
   parent_id?: number;
 }
 
@@ -28,7 +28,7 @@ export interface Transaction {
   account_id: number;
   category_id?: number;
   amount: number;
-  type: string; // income, expense, transfer
+  type: "income" | "expense" | "transfer";
   description?: string;
   date: string;
   transfer_to_id?: number;

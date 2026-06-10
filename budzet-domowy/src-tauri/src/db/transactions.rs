@@ -48,6 +48,9 @@ pub fn create_transaction(conn: &mut Connection, payload: CreateTransactionPaylo
     if payload.amount <= 0.0 {
         return Err(rusqlite::Error::InvalidParameterName("Kwota musi być większa od zera".to_string()));
     }
+    if payload.type_ != "income" && payload.type_ != "expense" && payload.type_ != "transfer" {
+        return Err(rusqlite::Error::InvalidParameterName("Nieprawidłowy typ transakcji".to_string()));
+    }
 
     let tx = conn.transaction()?;
 
@@ -155,6 +158,9 @@ pub fn bulk_insert_transactions(conn: &mut Connection, payloads: Vec<CreateTrans
         if payload.amount <= 0.0 {
             return Err(rusqlite::Error::InvalidParameterName("Kwota musi być większa od zera".to_string()));
         }
+        if payload.type_ != "income" && payload.type_ != "expense" && payload.type_ != "transfer" {
+            return Err(rusqlite::Error::InvalidParameterName("Nieprawidłowy typ transakcji".to_string()));
+        }
 
         tx.execute(
             "INSERT INTO transactions (account_id, category_id, amount, type, description, date, transfer_to_id)
@@ -239,6 +245,9 @@ pub fn delete_transaction(conn: &mut Connection, id: i64) -> Result<()> {
 pub fn update_transaction(conn: &mut Connection, id: i64, payload: UpdateTransactionPayload) -> Result<()> {
     if payload.amount <= 0.0 {
         return Err(rusqlite::Error::InvalidParameterName("Kwota musi być większa od zera".to_string()));
+    }
+    if payload.type_ != "income" && payload.type_ != "expense" && payload.type_ != "transfer" {
+        return Err(rusqlite::Error::InvalidParameterName("Nieprawidłowy typ transakcji".to_string()));
     }
 
     let tx = conn.transaction()?;

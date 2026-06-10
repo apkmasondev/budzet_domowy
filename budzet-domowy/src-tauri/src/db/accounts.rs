@@ -31,6 +31,24 @@ pub fn create_account(conn: &Connection, payload: CreateAccountPayload) -> Resul
     Ok(conn.last_insert_rowid())
 }
 
+#[derive(Deserialize)]
+pub struct UpdateAccountPayload {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub type_: String,
+    pub currency: String,
+    pub balance: f64,
+    pub color: Option<String>,
+}
+
+pub fn update_account(conn: &Connection, id: i64, payload: UpdateAccountPayload) -> Result<()> {
+    conn.execute(
+        "UPDATE accounts SET name = ?1, type = ?2, currency = ?3, balance = ?4, color = ?5 WHERE id = ?6",
+        params![payload.name, payload.type_, payload.currency, payload.balance, payload.color, id],
+    )?;
+    Ok(())
+}
+
 pub fn get_accounts(conn: &Connection) -> Result<Vec<Account>> {
     let mut stmt = conn.prepare("SELECT id, name, type, currency, balance, color, created_at FROM accounts ORDER BY id ASC")?;
     let account_iter = stmt.query_map([], |row| {
@@ -52,10 +70,13 @@ pub fn get_accounts(conn: &Connection) -> Result<Vec<Account>> {
     Ok(accounts)
 }
 
-pub fn delete_account(conn: &Connection, id: i64) -> Result<()> {
-    // Basic deletion, assume no foreign key cascade constraint for now
-    conn.execute("DELETE FROM transactions WHERE account_id = ?1 OR transfer_to_id = ?1", params![id])?;
-    conn.execute("DELETE FROM accounts WHERE id = ?1", params![id])?;
+pub fn delete_account(conn: &mut Connection, id: i64) -> Result<()> {
+    let tx = conn.transaction()?;
+    tx.execute("DELETE FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE account_id = ?1)", params![id])?;
+    tx.execute("DELETE FROM transactions WHERE account_id = ?1 OR transfer_to_id = ?1", params![id])?;
+    tx.execute("UPDATE recurring SET account_id = NULL WHERE account_id = ?1", params![id as i32])?;
+    tx.execute("DELETE FROM accounts WHERE id = ?1", params![id])?;
+    tx.commit()?;
     Ok(())
 }
 
@@ -94,7 +115,7 @@ mod tests {
 
     #[test]
     fn test_delete_account() {
-        let conn = setup_in_memory_db();
+        let mut conn = setup_in_memory_db();
         
         let payload = CreateAccountPayload {
             name: "Test Bank".to_string(),
@@ -107,7 +128,7 @@ mod tests {
         let id = create_account(&conn, payload).unwrap();
         assert_eq!(get_accounts(&conn).unwrap().len(), 1);
         
-        delete_account(&conn, id).unwrap();
+        delete_account(&mut conn, id).unwrap();
         assert_eq!(get_accounts(&conn).unwrap().len(), 0);
     }
 }

@@ -68,16 +68,39 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
   unlock: async (pin) => {
     const savedPin = await api.getSetting("app_pin");
-    if (savedPin === pin) {
+    if (!savedPin) return false;
+
+    const encoder = new TextEncoder();
+    const data = encoder.encode(pin);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashedPin = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    if (savedPin === hashedPin) {
       set({ isUnlocked: true });
       get().fetchData(true); // Load data after unlock
       return true;
     }
+
+    // Migracja wsteczna: jesli savedPin jest równy wpisanemu hasłu w plaintext, migruj do hasha
+    if (savedPin === pin) {
+      await api.setSetting("app_pin", hashedPin);
+      set({ isUnlocked: true });
+      get().fetchData(true);
+      return true;
+    }
+
     return false;
   },
 
   setupPin: async (pin) => {
-    await api.setSetting("app_pin", pin);
+    const encoder = new TextEncoder();
+    const data = encoder.encode(pin);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashedPin = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    await api.setSetting("app_pin", hashedPin);
     set({ hasPin: true, isUnlocked: true });
   },
 

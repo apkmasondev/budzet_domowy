@@ -1,7 +1,7 @@
 [package]
 name = "budzet-domowy"
-version = "0.1.0"
-description = "A Tauri App"
+version = "1.0.5"
+description = "Aplikacja do zarzadzania budzetem domowym"
 authors = ["you"]
 edition = "2021"
 

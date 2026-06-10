@@ -5,148 +5,166 @@ use rusqlite::Connection;
 
 #[tauri::command]
 fn get_accounts(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::accounts::Account>, String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::accounts::get_accounts(&conn).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn create_account(state: State<'_, Mutex<Connection>>, payload: db::accounts::CreateAccountPayload) -> Result<i64, String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::accounts::create_account(&conn, payload).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn delete_account(state: State<'_, Mutex<Connection>>, id: i64) -> Result<(), String> {
-    let conn = state.lock().unwrap();
-    db::accounts::delete_account(&conn, id).map_err(|e| e.to_string())
+    let mut conn = state.lock().map_err(|e| e.to_string())?;
+    db::accounts::delete_account(&mut conn, id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn update_account(state: State<'_, Mutex<Connection>>, id: i64, payload: db::accounts::UpdateAccountPayload) -> Result<(), String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    db::accounts::update_account(&conn, id, payload).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn get_categories(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::categories::Category>, String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::categories::get_categories(&conn).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn create_transaction(state: State<'_, Mutex<Connection>>, payload: db::transactions::CreateTransactionPayload) -> Result<i64, String> {
-    let mut conn = state.lock().unwrap();
+    let mut conn = state.lock().map_err(|e| e.to_string())?;
     db::transactions::create_transaction(&mut conn, payload).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn bulk_insert_transactions(state: State<'_, Mutex<Connection>>, payloads: Vec<db::transactions::CreateTransactionPayload>) -> Result<usize, String> {
-    let mut conn = state.lock().unwrap();
+    let mut conn = state.lock().map_err(|e| e.to_string())?;
     db::transactions::bulk_insert_transactions(&mut conn, payloads).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn get_transactions(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::transactions::Transaction>, String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::transactions::get_transactions(&conn).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn delete_transaction(state: State<'_, Mutex<Connection>>, id: i64) -> Result<(), String> {
-    let mut conn = state.lock().unwrap();
+    let mut conn = state.lock().map_err(|e| e.to_string())?;
     db::transactions::delete_transaction(&mut conn, id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn update_transaction(state: State<'_, Mutex<Connection>>, id: i64, payload: db::transactions::UpdateTransactionPayload) -> Result<(), String> {
-    let mut conn = state.lock().unwrap();
+    let mut conn = state.lock().map_err(|e| e.to_string())?;
     db::transactions::update_transaction(&mut conn, id, payload).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn get_tags(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::tags::Tag>, String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::tags::get_all_tags(&conn).map_err(|e| e.to_string())
 }
 
 // Budgets
 #[tauri::command]
 fn get_budgets(state: State<'_, Mutex<Connection>>, month: &str) -> Result<Vec<db::budgets::Budget>, String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::budgets::get_budgets(&conn, month).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn get_all_budgets(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::budgets::Budget>, String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::budgets::get_all_budgets(&conn).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn upsert_budget(state: State<'_, Mutex<Connection>>, payload: db::budgets::UpsertBudgetPayload) -> Result<(), String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::budgets::upsert_budget(&conn, payload).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn copy_budgets_to_month(state: State<'_, Mutex<Connection>>, from_month: &str, to_month: &str) -> Result<(), String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::budgets::copy_budgets_to_month(&conn, from_month, to_month).map_err(|e| e.to_string())
 }
 
 // Goals
 #[tauri::command]
 fn get_goals(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::goals::Goal>, String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::goals::get_goals(&conn).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn create_goal(state: State<'_, Mutex<Connection>>, payload: db::goals::CreateGoalPayload) -> Result<i64, String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::goals::create_goal(&conn, payload).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn delete_goal(state: State<'_, Mutex<Connection>>, id: i64) -> Result<(), String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::goals::delete_goal(&conn, id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn add_to_goal(state: State<'_, Mutex<Connection>>, payload: db::goals::AddToGoalPayload) -> Result<(), String> {
-    let mut conn = state.lock().unwrap();
+    let mut conn = state.lock().map_err(|e| e.to_string())?;
     db::goals::add_to_goal(&mut conn, payload).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn update_goal(state: State<'_, Mutex<Connection>>, id: i64, payload: db::goals::UpdateGoalPayload) -> Result<(), String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    db::goals::update_goal(&conn, id, payload).map_err(|e| e.to_string())
 }
 
 // Recurring
 #[tauri::command]
 fn get_recurrings(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::recurring::Recurring>, String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::recurring::get_recurrings(&conn).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn create_recurring(state: State<'_, Mutex<Connection>>, payload: db::recurring::CreateRecurring) -> Result<i32, String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::recurring::create_recurring(&conn, payload).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn delete_recurring(state: State<'_, Mutex<Connection>>, id: i32) -> Result<(), String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::recurring::delete_recurring(&conn, id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
+fn update_recurring(state: State<'_, Mutex<Connection>>, id: i32, payload: db::recurring::UpdateRecurring) -> Result<(), String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    db::recurring::update_recurring(&conn, id, payload).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn process_recurrings(state: State<'_, Mutex<Connection>>) -> Result<i32, String> {
-    let mut conn = state.lock().unwrap();
+    let mut conn = state.lock().map_err(|e| e.to_string())?;
     db::recurring::process_due_recurrings(&mut conn).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn detect_suggestions(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::recurring::RecurringSuggestion>, String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::recurring::detect_suggestions(&conn).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn ignore_subscription_suggestion(state: State<'_, Mutex<Connection>>, description: String) -> Result<(), String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     let current_ignored = db::settings::get_setting(&conn, "ignored_subscriptions")
         .map_err(|e| e.to_string())?
         .unwrap_or_default();
@@ -162,9 +180,13 @@ fn ignore_subscription_suggestion(state: State<'_, Mutex<Connection>>, descripti
 
 // Backup
 #[tauri::command]
-fn export_db(app_handle: tauri::AppHandle, destination_path: String) -> Result<(), String> {
+fn export_db(app_handle: tauri::AppHandle, state: State<'_, Mutex<Connection>>, destination_path: String) -> Result<(), String> {
     let app_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
     let db_path = app_dir.join("budzet.db");
+    
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);").map_err(|e| e.to_string())?;
+    
     std::fs::copy(&db_path, &destination_path).map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -174,7 +196,7 @@ fn import_db(app_handle: tauri::AppHandle, state: State<'_, Mutex<Connection>>, 
     let app_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
     let db_path = app_dir.join("budzet.db");
     
-    let mut conn = state.lock().unwrap();
+    let mut conn = state.lock().map_err(|e| e.to_string())?;
     // Odłączamy się od starego pliku, przechodząc na chwilę do pamięci RAM, żeby odblokować uchwyt (lock) na pliku!
     *conn = Connection::open_in_memory().map_err(|e| e.to_string())?;
     
@@ -190,20 +212,21 @@ fn import_db(app_handle: tauri::AppHandle, state: State<'_, Mutex<Connection>>, 
 // Settings
 #[tauri::command]
 fn get_setting(state: State<'_, Mutex<Connection>>, key: &str) -> Result<Option<String>, String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::settings::get_setting(&conn, key).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn set_setting(state: State<'_, Mutex<Connection>>, key: &str, value: &str) -> Result<(), String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::settings::set_setting(&conn, key, value).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn factory_reset(state: State<'_, Mutex<Connection>>) -> Result<(), String> {
-    let conn = state.lock().unwrap();
-    conn.execute_batch(
+    let mut conn = state.lock().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    tx.execute_batch(
         "DELETE FROM transaction_tags;
          DELETE FROM tags;
          DELETE FROM transactions;
@@ -215,20 +238,21 @@ fn factory_reset(state: State<'_, Mutex<Connection>>) -> Result<(), String> {
          DELETE FROM categories;"
     ).map_err(|e| e.to_string())?;
     
-    db::categories::seed_default_categories(&conn).map_err(|e| e.to_string())?;
+    db::categories::seed_default_categories(&tx).map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }
 
 // Categories Management
 #[tauri::command]
 fn create_category(state: State<'_, Mutex<Connection>>, name: &str, type_: &str, color: Option<&str>) -> Result<i64, String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::categories::create_category(&conn, name, type_, color).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn delete_category(state: State<'_, Mutex<Connection>>, id: i64) -> Result<(), String> {
-    let conn = state.lock().unwrap();
+    let conn = state.lock().map_err(|e| e.to_string())?;
     db::categories::delete_category(&conn, id).map_err(|e| e.to_string())
 }
 
@@ -278,7 +302,10 @@ pub fn run() {
             delete_category,
             bulk_insert_transactions,
             delete_transaction,
-            update_transaction
+            update_transaction,
+            update_account,
+            update_goal,
+            update_recurring
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

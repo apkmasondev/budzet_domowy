@@ -2,6 +2,23 @@
 
 Wszystkie znaczące zmiany w tym projekcie będą dokumentowane w tym pliku.
 
+## [1.0.5]
+
+- **Pełna Edycja Elementów**: Wprowadzono możliwość edytowania już istniejących Kont, Portfeli, Celów oszczędnościowych oraz Płatności Cyklicznych (Subskrypcji). Modale edycji ładują aktualne dane pozwalając na szybką korektę sald i parametrów.
+- **Interaktywny Dashboard**: Kafelki podsumowujące na ekranie głównym (Dashboard) stały się interaktywne. Kliknięcie kafelków takich jak "Zarządzaj", "Oszczędności", "Przychody" czy "Wydatki" przeniesie Cię do przypisanej zakładki.
+- **Dopracowane UX (Konta)**: Skorygowano umiejscowienie akcji na kartach w widoku Kont i Portfeli. Ikony edycji oraz kosza umieszczono estetycznie w prawym górnym rogu z odpowiednim powiększeniem obszaru uderzenia, eliminując zniekształcenia zawartości karty po najechaniu myszką.
+- **Zabezpieczenie przed ujemnym saldem (Overdraft)**: Przy operacjach szybkiego wydatku oraz przy zasilaniu celów oszczędnościowych wprowadzono podwójne sprawdzanie i specjalny alert z ostrzeżeniem przed przypadkowym zejściem w debet na wskazanym koncie.
+- **Krytyczne poprawki (Audyt 1.0.5)**: 
+  - Usunięto problem "martwego kodu" i błędnego przeliczania dat w operacjach cyklicznych.
+  - Wyeliminowano ryzyko zawieszania się wątków SQLite (eliminacja `.lock().unwrap()`), wprowadzając bezpieczny zwrot błędów na frontend.
+  - Wdrożono pełne, bezpieczne transakcje przy twardym resecie, eksportowaniu bazy i kasowaniu kont (czyszcząc powiązane tagi i subskrypcje kaskadowo).
+  - Wskaźnik "Do Rozdysponowania" (ZBB) uwzględnia od teraz wydatki wykraczające poza koperty (długi), prawidłowo redukując całkowite dostępne saldo.
+  - Rozszerzono bezpieczeństwo PIN o silne kryptograficzne hashowanie SHA-256 z migracją wsteczną ("w locie") oraz wdrożono blokadę przed próbami ataku brute-force w LockScreen.
+  - Dodano Content Security Policy do plików konfiguracyjnych Tauri dla większego bezpieczeństwa instancji webview.
+  - Oczyszczono zbędne zależności z package.json i dodano globalną obsługę nieprzewidzianych błędów aplikacji w formie estetycznego ekranu `ErrorBoundary`.
+  - W module Importu CSV dodano dynamiczne filtrowanie kategorii przy procesie mapowania (oddzielenie przychodów od wydatków), eliminując chaos w dropdownach.
+  - Do fabrycznej listy domyślnych kategorii dodano "Poduszka finansowa" dla fanów Zero-Based Budgeting.
+
 ## [1.0.2]
 
 ### Faza 16: Zero-Based Budgeting (ZBB / Metoda Kopertowa)
@@ -12,7 +29,7 @@ Wszystkie znaczące zmiany w tym projekcie będą dokumentowane w tym pliku.
 - **Inteligentne Wykrywanie Subskrypcji**: Aplikacja automatycznie skanuje wydatki z ostatnich 90 dni i jeżeli wykryje powtarzalne płatności (ten sam tytuł, zbliżona kwota, interwał ok. miesiąca), zaproponuje dodanie ich do subskrypcji. Posiada trwałą opcję ignorowania (`Nie pokazuj ponownie`).
 - **Dynamiczna Typografia**: Ogromne kwoty (miliony) na karcie Dashboard automatycznie zmniejszają czcionkę zamiast brzydko się uciąć (truncate).
 - **Import Wyciągów Bankowych (CSV)**: Dodano nowy, pełnoekranowy moduł Importu (Drag & Drop) potrafiący "w locie" analizować i wczytywać pliki eksportu z absolutnie każdego banku w Polsce. Wystarczy rzucić plik i przypisać zaledwie 3 kolumny (Data, Tytuł, Kwota) z rozwijanych list. Moduł został wzbogacony o inteligentne, interaktywne mapowanie unikalnych kategorii bankowych do kategorii lokalnych z funkcją autouzupełniania opartą o proste słowa kluczowe (np. "sport", "jedzenie", "elektronika").
-- **Inteligentna Pre-Kategoryzacja**: Algorytm analizuje importowane wyciągi z banków na żywo. Jeśli zidentyfikuje tytuł transakcji (np. "Orlen"), który już wcześniej występował w Twojej bazie wraz z przypisaną kategorią, automatycznie załączy tę kategorię do tysięcy nowych transakcji w mgnieniu oka.
+- **Inteligentna Pre-Kategoryzacja**: Algorytm analizuje importowane wyciągi z banków na żywo. Jeśli zidentyfikuje kategorię transakcji (np. "Jedzenie"), która już wcześniej występowała w Twojej bazie wraz z przypisaną kategorią, automatycznie załączy tę kategorię do tysięcy nowych transakcji w mgnieniu oka.
 - **Błyskawiczna Edycja i Usuwanie (Inline)**: Zastąpienie starych modali aktywnymi ikonami (Edytuj / Usuń) wyłaniającymi się elegancko po najechaniu myszką na wiersz w historii transakcji. Edycja inteligentnie wczytuje istniejący globalny formularz szybkiej operacji z wypełnionymi już danymi, pozwalając na szybką poprawę tytułu, kwoty czy kategorii z odpowiednim przeliczeniem sald (zabezpieczone silnikiem Rust).
 - **Poprawa Widoczności Ikon Akcji w Transakcjach**: Ikony edycji i usuwania wysuwają się teraz płynnie z lewej strony kwoty po najechaniu na wiersz, pozostawiając kwotę w pełni widoczną (brak ukrywania kwoty jak dotychczas).
 - **Raport Finałowy i Poprawki Audytowe**: Optymalizacja SQLite (indeksy), wyeliminowanie wąskiego gardła wydajności (N+1 queries dla tagów), bezpieczniejsze typowanie i wdrożenie wirtualizacji tabel na frontendzie (`@tanstack/react-virtual`). Aplikacja gotowa na miliony wpisów.

@@ -55,6 +55,25 @@ pub fn create_recurring(conn: &Connection, recurring: CreateRecurring) -> Result
     Ok(conn.last_insert_rowid() as i32)
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UpdateRecurring {
+    pub name: String,
+    pub amount: f64,
+    pub category_id: Option<i32>,
+    pub account_id: Option<i32>,
+    pub frequency: String,
+    pub next_date: String,
+    pub day_of_month: Option<i32>,
+}
+
+pub fn update_recurring(conn: &Connection, id: i32, payload: UpdateRecurring) -> Result<()> {
+    conn.execute(
+        "UPDATE recurring SET name = ?1, amount = ?2, category_id = ?3, account_id = ?4, frequency = ?5, next_date = ?6, day_of_month = ?7 WHERE id = ?8",
+        params![payload.name, payload.amount, payload.category_id, payload.account_id, payload.frequency, payload.next_date, payload.day_of_month, id],
+    )?;
+    Ok(())
+}
+
 pub fn delete_recurring(conn: &Connection, id: i32) -> Result<()> {
     conn.execute("DELETE FROM recurring WHERE id = ?1", params![id])?;
     Ok(())
@@ -102,6 +121,7 @@ pub fn process_due_recurrings(conn: &mut Connection) -> Result<i32> {
         }
 
         let next_date_str = recurring.next_date.as_str();
+        let mut new_date_str = next_date_str.to_string();
         if let Ok(parsed_date) = chrono::NaiveDate::parse_from_str(next_date_str, "%Y-%m-%d") {
             let next_month = if parsed_date.month() == 12 {
                 chrono::NaiveDate::from_ymd_opt(parsed_date.year() + 1, 1, recurring.day_of_month.unwrap_or(parsed_date.day() as i32) as u32)
@@ -109,11 +129,15 @@ pub fn process_due_recurrings(conn: &mut Connection) -> Result<i32> {
                 chrono::NaiveDate::from_ymd_opt(parsed_date.year(), parsed_date.month() + 1, recurring.day_of_month.unwrap_or(parsed_date.day() as i32) as u32)
             };
             
-            // Jesli to jest np. 31 dzień a miesiąc ma 30 dni, trzeba to sfixować, dla bezpieczeństwa uproszczenie do 28
-            let _valid_date = next_month.unwrap_or_else(|| chrono::NaiveDate::from_ymd_opt(parsed_date.year(), parsed_date.month() + 1, 28).unwrap());
+            let valid_date = next_month.unwrap_or_else(|| chrono::NaiveDate::from_ymd_opt(
+                if parsed_date.month() == 12 { parsed_date.year() + 1 } else { parsed_date.year() },
+                if parsed_date.month() == 12 { 1 } else { parsed_date.month() + 1 },
+                28
+            ).unwrap());
+            new_date_str = valid_date.format("%Y-%m-%d").to_string();
         }
         
-        tx.execute("UPDATE recurring SET next_date = ?1 WHERE id = ?2", params![next_date_str, recurring.id])?;
+        tx.execute("UPDATE recurring SET next_date = ?1 WHERE id = ?2", params![new_date_str, recurring.id])?;
         processed_count += 1;
     }
 

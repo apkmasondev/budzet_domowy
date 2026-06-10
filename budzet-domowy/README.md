@@ -45,10 +45,13 @@ Nowoczesna i szybka aplikacja desktopowa do zarządzania finansami osobistymi, s
 - **Faza 14 (Architektura v2 & React Query):** Wymiana serca aplikacji – usunięcie starych wywołań wewnątrz `useEffect` i wdrożenie profesjonalnej biblioteki `@tanstack/react-query`. Oddzielenie warstwy komunikacji (API) od komponentów, automatyczna inwalidacja zapytań (cache) oraz dodanie testów jednostkowych w języku Rust operujących na izolowanej od dysku, in-memory bazie danych SQLite, co zapewnia w 100% stabilne CI/CD i potężny fundament pod kolejne funkcje w v2.
 - **Faza 15 (Migracje Bazy i Tagi):** Zastąpiono sztywny skrypt `schema.sql` solidnym systemem kaskadowych, twardych migracji (`rusqlite_migration`). Ochroni to użytkowników przed utratą danych podczas większych aktualizacji. Rozbudowano transakcje o wielowymiarowy i zoptymalizowany system relacyjnych Tagów (`#Hashtagi`) wyposażony we własne algorytmy szybkiego wyszukiwania.
 
-## Wersja 1.0.2 - Roadmapa i Nowości
+## Wersja 1.0.5 - Roadmapa i Nowości
 
 Rozpoczęto wdrażanie potężnej architektonicznej aktualizacji. Do tej pory ukończono:
 
+- [x] Pełna Edycja Elementów: Wprowadzono długo wyczekiwaną możliwość edytowania już istniejących Kont, Portfeli, Celów oszczędnościowych oraz Płatności Cyklicznych (Subskrypcji).
+- [x] Interaktywny Dashboard: Kafelki na głównym ekranie przekierowują do odpowiadających im zakładek po kliknięciu.
+- [x] Wygodny interfejs edycji i usuwania w zakładce Kont i Portfeli z ikonami przeniesionymi w łatwo dostępne, prawe górne rogi kart.
 - [x] Migracja całego UI na hooki TanStack Query, eliminacja wyścigów asynchronicznych (Race Conditions).
 - [x] Implementacja bezpiecznego środowiska testowego (In-Memory SQLite) po stronie Rust.
 - [x] Twarde migracje bazy danych (za pomocą `rusqlite_migration`) zabezpieczające starą strukturę przed awarią.

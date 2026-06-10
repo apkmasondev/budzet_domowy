@@ -4,6 +4,7 @@ import { Account, Category, Transaction, Budget, Goal, RecurringTransaction, Rec
 export const api = {
   getAccounts: () => invoke<Account[]>("get_accounts"),
   createAccount: (payload: Omit<Account, 'id' | 'created_at'>) => invoke<number>("create_account", { payload }),
+  updateAccount: (id: number, payload: Omit<Account, 'id' | 'created_at'>) => invoke<void>("update_account", { id, payload }),
   deleteAccount: (id: number) => invoke<void>("delete_account", { id }),
   
   getCategories: () => invoke<Category[]>("get_categories"),
@@ -25,11 +26,13 @@ export const api = {
 
   getGoals: () => invoke<Goal[]>("get_goals"),
   createGoal: (payload: Omit<Goal, 'id' | 'current_amount' | 'created_at'>) => invoke<number>("create_goal", { payload }),
+  updateGoal: (id: number, payload: Omit<Goal, 'id' | 'created_at'>) => invoke<void>("update_goal", { id, payload }),
   deleteGoal: (id: number) => invoke<void>("delete_goal", { id }),
   addToGoal: (payload: { goal_id: number; amount: number; account_id: number; date: string }) => invoke<void>("add_to_goal", { payload }),
 
   getRecurrings: () => invoke<RecurringTransaction[]>("get_recurrings"),
   createRecurring: (payload: Omit<RecurringTransaction, 'id' | 'active'>) => invoke<number>("create_recurring", { payload }),
+  updateRecurring: (id: number, payload: Omit<RecurringTransaction, 'id' | 'active'>) => invoke<void>("update_recurring", { id, payload }),
   deleteRecurring: (id: number) => invoke<void>("delete_recurring", { id }),
   processRecurrings: () => invoke<number>("process_recurrings"),
   detectSuggestions: () => invoke<RecurringSuggestion[]>("detect_suggestions"),

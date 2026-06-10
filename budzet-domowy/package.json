@@ -1,7 +1,7 @@
 {
   "name": "budzet-domowy",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -17,14 +17,12 @@
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-fs": "^2.5.1",
     "@tauri-apps/plugin-opener": "^2",
-    "clsx": "^2.1.1",
     "lucide-react": "^1.17.0",
     "papaparse": "^5.5.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.17.0",
     "recharts": "^3.8.1",
-    "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.0",
     "zustand": "^5.0.14"
   },

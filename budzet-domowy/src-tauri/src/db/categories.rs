@@ -22,7 +22,7 @@ pub fn seed_default_categories(conn: &Connection) -> Result<()> {
         ("Jedzenie", "#FF6B6B"), ("Transport", "#4ECDC4"), ("Mieszkanie", "#A05195"), 
         ("Zdrowie", "#1DD1A1"), ("Rozrywka", "#F368E0"), ("Ubrania", "#2D9596"), 
         ("Edukacja", "#FECA57"), ("Restauracje", "#FF9F43"), ("Sport", "#10AC84"), 
-        ("Elektronika", "#54A0FF"), ("Prezenty", "#5F27CD"), ("Inne", "#C8D6E5")
+        ("Elektronika", "#54A0FF"), ("Prezenty", "#5F27CD"), ("Poduszka finansowa", "#1ABC9C"), ("Inne", "#C8D6E5")
     ];
 
     let incomes = [
@@ -53,7 +53,7 @@ pub fn migrate_default_colors(conn: &Connection) -> Result<()> {
         ("Jedzenie", "#FF6B6B", "#f59e0b"), ("Transport", "#4ECDC4", "#3b82f6"), ("Mieszkanie", "#A05195", "#8b5cf6"), 
         ("Zdrowie", "#1DD1A1", "#10b981"), ("Rozrywka", "#F368E0", "#ec4899"), ("Ubrania", "#2D9596", "#06b6d4"), 
         ("Edukacja", "#FECA57", "#f97316"), ("Restauracje", "#FF9F43", "#ef4444"), ("Sport", "#10AC84", "#14b8a6"), 
-        ("Elektronika", "#54A0FF", "#6366f1"), ("Prezenty", "#5F27CD", "#d946ef"), ("Inne", "#C8D6E5", "#64748b"),
+        ("Elektronika", "#54A0FF", "#6366f1"), ("Prezenty", "#5F27CD", "#d946ef"), ("Poduszka finansowa", "#1ABC9C", "#1ABC9C"), ("Inne", "#C8D6E5", "#64748b"),
         ("Wynagrodzenie", "#10B981", "#10b981"), ("Freelance", "#0ABDE3", "#3b82f6"), ("Dywidendy", "#8B5CF6", "#8b5cf6"), 
         ("Sprzedaż", "#FF9FF3", "#f59e0b"), ("Inne przychody", "#8395A7", "#64748b")
     ];
