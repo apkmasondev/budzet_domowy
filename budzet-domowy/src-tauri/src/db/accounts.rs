@@ -72,6 +72,26 @@ pub fn get_accounts(conn: &Connection) -> Result<Vec<Account>> {
 
 pub fn delete_account(conn: &mut Connection, id: i64) -> Result<()> {
     let tx = conn.transaction()?;
+
+    // Obsługa sierocych transferów (odwracanie sald na innych kontach)
+    let transfers: Vec<(i64, Option<i64>, f64)> = {
+        let mut stmt = tx.prepare("SELECT account_id, transfer_to_id, amount FROM transactions WHERE type = 'transfer' AND (account_id = ?1 OR transfer_to_id = ?1)")?;
+        let res = stmt.query_map(params![id], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        })?.collect::<Result<Vec<_>, _>>()?;
+        res
+    };
+
+    for (acc_id, to_id, amount) in transfers {
+        if acc_id == id {
+            if let Some(other_id) = to_id {
+                tx.execute("UPDATE accounts SET balance = balance - ?1 WHERE id = ?2", params![amount, other_id])?;
+            }
+        } else if Some(acc_id) != Some(id) && to_id == Some(id) {
+            tx.execute("UPDATE accounts SET balance = balance + ?1 WHERE id = ?2", params![amount, acc_id])?;
+        }
+    }
+
     tx.execute("DELETE FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE account_id = ?1)", params![id])?;
     tx.execute("DELETE FROM transactions WHERE account_id = ?1 OR transfer_to_id = ?1", params![id])?;
     tx.execute("UPDATE recurring SET account_id = NULL WHERE account_id = ?1", params![id])?;

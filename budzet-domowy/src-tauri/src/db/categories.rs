@@ -107,7 +107,7 @@ pub fn delete_category(conn: &Connection, id: i64) -> Result<()> {
     // Delete transactions associated with this category or set them to NULL.
     // For safety, let's set them to NULL so we don't lose transaction history!
     conn.execute("UPDATE transactions SET category_id = NULL WHERE category_id = ?1", [id])?;
-    conn.execute("UPDATE budgets SET category_id = NULL WHERE category_id = ?1", [id])?;
+    conn.execute("DELETE FROM budgets WHERE category_id = ?1", [id])?;
     conn.execute("UPDATE recurring SET category_id = NULL WHERE category_id = ?1", [id])?;
     
     conn.execute("DELETE FROM categories WHERE id = ?1", [id])?;

@@ -6,6 +6,11 @@ Wszystkie znaczące zmiany w tym projekcie będą dokumentowane w tym pliku.
 
 - **Poprawka wskaźnika "Do Rozdysponowania" (Ready to Assign)**: Naprawiono regresję w silniku ZBB w Rust, która powodowała wliczanie ujemnych sald kopert do sumy dostępnych środków, przez co przekroczenia budżetu sztucznie powiększały saldo RTA. Obecnie sumowane są wyłącznie dodatnie salda.
 - **Poprawka alertów przekroczenia budżetu (Dashboard)**: Zintegrowano powiadomienia o przekroczonych kategoriach na Dashboardzie bezpośrednio z obliczeniami silnika ZBB. Zapobiega to fałszywym ostrzeżeniom (np. gdy kategoria Jedzenie miała zrealizowane wydatki przekraczające limit bieżącego miesiąca, ale posiadała wystarczające środki przeniesione z poprzedniego miesiąca).
+- **Poprawka renderowania `0` przy kategoriach (Frontend)**: Zmieniono sposób sprawdzania wartości w tabeli budżetowej na froncie, wykluczając rzutowanie liczby 0 w strukturze DOM przez React.
+- **Poprawka błędu NOT NULL przy usuwaniu kategorii (Backend)**: Wyeliminowano krytyczny błąd bazy danych SQLite ujawniający się przy kasowaniu zdefiniowanych kategorii. Powiązane z usuniętą kategorią limity budżetowe są odpowiednio usuwane miast rzucać wywołanie błędem.
+- **Poprawa spójności przy usuwaniu kont**: Przy usuwaniu konta aplikacja teraz inteligentnie odwraca zrealizowane na zewnątrz przelewy, zachowując historyczną spójność salda. Zapobiega to powstawaniu osieroconych przelewów.
+- **Relacyjne powiązanie Celów i Transakcji**: Dodano klucz obcy (oraz nową migrację bazy - V5) wiążący generowane automatycznie wydatki z panelu celów. Modyfikacja kwoty lub skasowanie takiej transakcji na liście historii odpowiednio koryguje zaksięgowaną wpłatę na samym celu oszczędnościowym.
+- **Zwiększona niezawodność importu bazy**: Przebudowano funkcję wczytywania backupu SQLite na Windows. Dodano mechanizm omijający blokady plików na poziomie systemu (np. Windows Defender) i bezpieczne usuwanie plików transakcyjnych WAL/SHM.
 
 ## [2.0.0]
 

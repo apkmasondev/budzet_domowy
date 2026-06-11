@@ -118,6 +118,7 @@ export const useUpdateTransaction = () => {
       queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
       queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
       queryClient.invalidateQueries({ queryKey: ["tags"] });
+      queryClient.invalidateQueries({ queryKey: ["goals"] });
     },
   });
 };
@@ -133,6 +134,7 @@ export const useDeleteTransaction = () => {
       queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
       queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
       queryClient.invalidateQueries({ queryKey: ["tags"] });
+      queryClient.invalidateQueries({ queryKey: ["goals"] });
     },
   });
 };

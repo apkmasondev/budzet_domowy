@@ -234,8 +234,8 @@ pub fn bulk_insert_transactions(conn: &mut Connection, payloads: Vec<CreateTrans
 pub fn delete_transaction(conn: &mut Connection, id: i64) -> Result<()> {
     let tx = conn.transaction()?;
 
-    let (account_id, amount, type_, transfer_to_id) = {
-        let mut stmt = tx.prepare("SELECT account_id, amount, type, transfer_to_id FROM transactions WHERE id = ?1")?;
+    let (account_id, amount, type_, transfer_to_id, goal_id) = {
+        let mut stmt = tx.prepare("SELECT account_id, amount, type, transfer_to_id, goal_id FROM transactions WHERE id = ?1")?;
         let mut rows = stmt.query(params![id])?;
         if let Some(row) = rows.next()? {
             (
@@ -243,6 +243,7 @@ pub fn delete_transaction(conn: &mut Connection, id: i64) -> Result<()> {
                 row.get::<_, f64>(1)?,
                 row.get::<_, String>(2)?,
                 row.get::<_, Option<i64>>(3)?,
+                row.get::<_, Option<i64>>(4)?,
             )
         } else {
             return Err(rusqlite::Error::QueryReturnedNoRows);
@@ -261,6 +262,9 @@ pub fn delete_transaction(conn: &mut Connection, id: i64) -> Result<()> {
         }
     }
 
+    if let Some(gid) = goal_id {
+        tx.execute("UPDATE goals SET current_amount = current_amount - ?1 WHERE id = ?2", params![amount, gid])?;
+    }
     tx.execute("DELETE FROM transaction_tags WHERE transaction_id = ?1", params![id])?;
     tx.execute("DELETE FROM transactions WHERE id = ?1", params![id])?;
 
@@ -278,8 +282,8 @@ pub fn update_transaction(conn: &mut Connection, id: i64, payload: UpdateTransac
 
     let tx = conn.transaction()?;
 
-    let (old_account_id, old_amount, old_type_, old_transfer_to_id) = {
-        let mut stmt = tx.prepare("SELECT account_id, amount, type, transfer_to_id FROM transactions WHERE id = ?1")?;
+    let (old_account_id, old_amount, old_type_, old_transfer_to_id, goal_id) = {
+        let mut stmt = tx.prepare("SELECT account_id, amount, type, transfer_to_id, goal_id FROM transactions WHERE id = ?1")?;
         let mut rows = stmt.query(params![id])?;
         if let Some(row) = rows.next()? {
             (
@@ -287,6 +291,7 @@ pub fn update_transaction(conn: &mut Connection, id: i64, payload: UpdateTransac
                 row.get::<_, f64>(1)?,
                 row.get::<_, String>(2)?,
                 row.get::<_, Option<i64>>(3)?,
+                row.get::<_, Option<i64>>(4)?,
             )
         } else {
             return Err(rusqlite::Error::QueryReturnedNoRows);
@@ -332,6 +337,11 @@ pub fn update_transaction(conn: &mut Connection, id: i64, payload: UpdateTransac
             id
         ],
     )?;
+
+    if let Some(gid) = goal_id {
+        let diff = payload.amount - old_amount;
+        tx.execute("UPDATE goals SET current_amount = current_amount + ?1 WHERE id = ?2", params![diff, gid])?;
+    }
 
     // Handle tags
     tx.execute("DELETE FROM transaction_tags WHERE transaction_id = ?1", params![id])?;

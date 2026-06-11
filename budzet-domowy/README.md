@@ -74,6 +74,10 @@ Rozpoczęto wdrażanie potężnej architektonicznej aktualizacji. Do tej pory uk
 
 Wszystkie cele projektowe w tym wydaniu zostały zrealizowane! 🎉
 
+## Wersja 2.0.1 (Patch Architektoniczny)
+
+Wydanie skupione w 100% na spłaceniu długu technologicznego na warstwie Rust & SQLite. Wyeliminowano problem sierocych transferów, dodano brakujące indeksy i powiązano relacyjnie wpłaty na poczet celów z bazą oszczędności. Całkowicie uodporniono mechanizm importowania bazy w systemie plików Windows na zjawisko blokowania uchwytów (File Lock) przez antywirusy.
+
 ## Uruchamianie lokalne
 
 Wymagane środowisko to Node.js, npm oraz instalacja języka Rust, Cargo oraz MSVC C++ Build Tools (wymagane w systemie Windows).

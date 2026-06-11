@@ -224,7 +224,15 @@ fn import_db(app_handle: tauri::AppHandle, state: State<'_, Mutex<Connection>>, 
     // Odłączamy się od starego pliku, przechodząc na chwilę do pamięci RAM, żeby odblokować uchwyt (lock) na pliku!
     *conn = Connection::open_in_memory().map_err(|e| e.to_string())?;
     
-    // Nadpisujemy stary plik z backupem (Dzięki in-memory connection Windows nie wyrzuci błędu File in use!)
+    // Usypiamy wątek na bardzo krótki czas, by system (np. Windows Defender) puścił blokadę
+    std::thread::sleep(std::time::Duration::from_millis(150));
+    
+    // Usuwamy pliki tymczasowe SQLite (wal/shm), by nie skorumpować nadpisywanej bazy!
+    let _ = std::fs::remove_file(&db_path);
+    let _ = std::fs::remove_file(app_dir.join("budzet.db-wal"));
+    let _ = std::fs::remove_file(app_dir.join("budzet.db-shm"));
+    
+    // Kopiujemy stary plik z backupem
     std::fs::copy(&source_path, &db_path).map_err(|e| e.to_string())?;
     
     // Otwieramy bazę z powrotem na świeżym, odzyskanym pliku!

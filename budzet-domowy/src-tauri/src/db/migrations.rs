@@ -30,6 +30,12 @@ pub fn get_migrations() -> Migrations<'static> {
             CREATE INDEX IF NOT EXISTS idx_transaction_tags_tag_id ON transaction_tags(tag_id);
             ",
         ), // V4 - missing tag index
+        M::up(
+            "
+            ALTER TABLE transactions ADD COLUMN goal_id INTEGER REFERENCES goals(id) ON DELETE SET NULL;
+            CREATE INDEX IF NOT EXISTS idx_goals_created_at ON goals(created_at);
+            ",
+        ), // V5 - goal dependency and index
     ])
 }
 

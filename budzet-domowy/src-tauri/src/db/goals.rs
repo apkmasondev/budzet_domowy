@@ -83,13 +83,14 @@ pub fn add_to_goal(conn: &mut Connection, payload: AddToGoalPayload) -> Result<(
 
     let description = format!("Wpłata na cel oszczędnościowy");
     tx.execute(
-        "INSERT INTO transactions (account_id, category_id, amount, type, description, date, transfer_to_id)
-         VALUES (?1, NULL, ?2, 'expense', ?3, ?4, NULL)",
+        "INSERT INTO transactions (account_id, category_id, amount, type, description, date, transfer_to_id, goal_id)
+         VALUES (?1, NULL, ?2, 'expense', ?3, ?4, NULL, ?5)",
         params![
             payload.account_id,
             payload.amount,
             description,
-            payload.date
+            payload.date,
+            payload.goal_id
         ],
     )?;
     
