@@ -12,9 +12,9 @@ export const api = {
   updateCategory: (id: number, name: string, type: string, color?: string) => invoke<void>("update_category", { id, name, type, color }),
   deleteCategory: (id: number) => invoke<void>("delete_category", { id }),
   
-  getTransactions: (limit: number, offset: number, search?: string, month?: string, type_?: string, sort_by?: string, account_id?: number) => invoke<Transaction[]>("get_transactions", { limit, offset, search, month, type_, sortBy: sort_by, accountId: account_id }),
+  getTransactions: (limit: number, offset: number, search?: string, month?: string, txType?: string, sortBy?: string, accountId?: number) => invoke<Transaction[]>("get_transactions", { limit, offset, search, month, txType, sortBy, accountId }),
   getTransactionById: (id: number) => invoke<Transaction>("get_transaction_by_id", { id }),
-  getTransactionsCount: (search?: string, month?: string, type_?: string) => invoke<number>("get_transactions_count", { search, month, type_ }),
+  getTransactionsCount: (search?: string, month?: string, txType?: string) => invoke<number>("get_transactions_count", { search, month, txType }),
   getTransactionMonths: () => invoke<string[]>("get_transaction_months"),
   getDashboardStats: (month: string) => invoke<{ expenses: number, incomes: number, recent_transactions: Transaction[] }>("get_dashboard_stats", { month }),
   createTransaction: (payload: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>) => invoke<number>("create_transaction", { payload }),

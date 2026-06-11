@@ -104,7 +104,7 @@ pub fn get_transactions(
     offset: u32,
     search: Option<String>,
     month: Option<String>,
-    type_: Option<String>,
+    tx_type: Option<String>,
     sort_by: Option<String>,
     account_id: Option<i64>
 ) -> Result<Vec<Transaction>> {
@@ -145,7 +145,7 @@ pub fn get_transactions(
         }
     }
 
-    if let Some(t) = type_ {
+    if let Some(t) = tx_type {
         if !t.is_empty() && t != "all" {
             query.push_str(" AND t.type = ? ");
             args.push(Box::new(t));
@@ -208,7 +208,7 @@ pub fn get_transactions_count(
     conn: &Connection,
     search: Option<String>,
     month: Option<String>,
-    type_: Option<String>
+    tx_type: Option<String>
 ) -> Result<u32> {
     let mut query = "
         SELECT COUNT(DISTINCT t.id) FROM transactions t
@@ -243,7 +243,7 @@ pub fn get_transactions_count(
         }
     }
 
-    if let Some(t) = type_ {
+    if let Some(t) = tx_type {
         if !t.is_empty() && t != "all" {
             query.push_str(" AND t.type = ? ");
             args.push(Box::new(t));

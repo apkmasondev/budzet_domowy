@@ -19,10 +19,10 @@ export const useCategories = () => {
 
 import { useInfiniteQuery } from "@tanstack/react-query";
 
-export const useTransactions = (search?: string, month?: string, type_?: string, sortBy?: string) => {
+export const useTransactions = (search?: string, month?: string, txType?: string, sortBy?: string) => {
   return useInfiniteQuery({
-    queryKey: ["transactions", search, month, type_, sortBy],
-    queryFn: ({ pageParam = 0 }) => api.getTransactions(50, pageParam, search, month, type_, sortBy),
+    queryKey: ["transactions", search, month, txType, sortBy],
+    queryFn: ({ pageParam = 0 }) => api.getTransactions(50, pageParam, search, month, txType, sortBy),
     getNextPageParam: (lastPage, allPages) => {
       return lastPage.length === 50 ? allPages.length * 50 : undefined;
     },

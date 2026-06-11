@@ -52,12 +52,12 @@ fn get_transactions(
     offset: u32,
     search: Option<String>,
     month: Option<String>,
-    type_: Option<String>,
+    tx_type: Option<String>,
     sort_by: Option<String>,
     account_id: Option<i64>
 ) -> Result<Vec<db::transactions::Transaction>, String> {
     let conn = state.lock().map_err(|e| e.to_string())?;
-    db::transactions::get_transactions(&conn, limit, offset, search, month, type_, sort_by, account_id).map_err(|e| e.to_string())
+    db::transactions::get_transactions(&conn, limit, offset, search, month, tx_type, sort_by, account_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -83,10 +83,10 @@ fn get_transactions_count(
     state: State<'_, Mutex<Connection>>,
     search: Option<String>,
     month: Option<String>,
-    type_: Option<String>
+    tx_type: Option<String>
 ) -> Result<u32, String> {
     let conn = state.lock().map_err(|e| e.to_string())?;
-    db::transactions::get_transactions_count(&conn, search, month, type_).map_err(|e| e.to_string())
+    db::transactions::get_transactions_count(&conn, search, month, tx_type).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
