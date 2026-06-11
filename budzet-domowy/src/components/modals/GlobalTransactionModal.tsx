@@ -1,14 +1,18 @@
 import { useState, useEffect } from "react";
 import { useFinanceStore } from "../../store/useFinanceStore";
 import { ArrowDownRight, ArrowUpRight, AlertTriangle, ArrowRightLeft, Plus } from "lucide-react";
-import { useAccounts, useCategories, useAddTransaction, useUpdateTransaction, useAllTransactions, useCreateCategory } from "../../lib/queries";
-import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useAccounts, useCategories, useAddTransaction, useUpdateTransaction, useTags, useTransaction, useCreateCategory } from "../../lib/queries";
+
+import { Modal } from "../ui/Modal";
+import { Button } from "../ui/Button";
 
 export default function GlobalTransactionModal() {
   const { isTransactionModalOpen, editingTransactionId, setTransactionModalOpen } = useFinanceStore();
   const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
-  const { data: transactions = [] } = useAllTransactions();
+  const { data: txToEdit } = useTransaction(editingTransactionId);
+  const { data: allTagsObj = [] } = useTags();
+  const allTags = allTagsObj.map(t => t.name);
   const addTransactionMutation = useAddTransaction();
   const updateTransactionMutation = useUpdateTransaction();
   const [amount, setAmount] = useState("");
@@ -24,22 +28,17 @@ export default function GlobalTransactionModal() {
   const [newCatName, setNewCatName] = useState("");
   const createCategoryMutation = useCreateCategory();
   
-  const allTags = Array.from(new Set(transactions.flatMap(t => t.tags || [])));
-  
-  const modalRef = useFocusTrap(isTransactionModalOpen && !pendingOverdraft);
+
 
   useEffect(() => {
-    if (isTransactionModalOpen && editingTransactionId) {
-      const txToEdit = transactions.find(t => t.id === editingTransactionId);
-      if (txToEdit) {
-        setAmount(txToEdit.amount.toString());
-        setType(txToEdit.type);
-        setAccountId(txToEdit.account_id.toString());
-        setCategoryId(txToEdit.category_id?.toString() || "");
-        setTransferToId(txToEdit.transfer_to_id?.toString() || "");
-        setDescription(txToEdit.description || "");
-        setTagsInput(txToEdit.tags ? txToEdit.tags.map(t => `#${t}`).join(" ") : "");
-      }
+    if (isTransactionModalOpen && editingTransactionId && txToEdit) {
+      setAmount(txToEdit.amount.toString());
+      setType(txToEdit.type);
+      setAccountId(txToEdit.account_id.toString());
+      setCategoryId(txToEdit.category_id?.toString() || "");
+      setTransferToId(txToEdit.transfer_to_id?.toString() || "");
+      setDescription(txToEdit.description || "");
+      setTagsInput(txToEdit.tags ? txToEdit.tags.map(t => `#${t}`).join(" ") : "");
     } else if (isTransactionModalOpen && !editingTransactionId) {
       setAmount("");
       setDescription("");
@@ -49,7 +48,7 @@ export default function GlobalTransactionModal() {
       setShowNewCat(false);
       setNewCatName("");
     }
-  }, [isTransactionModalOpen, editingTransactionId, transactions]);
+  }, [isTransactionModalOpen, editingTransactionId, txToEdit]);
 
   // Close on Escape when not overdrafting
   useEffect(() => {
@@ -83,7 +82,6 @@ export default function GlobalTransactionModal() {
       };
 
       if (editingTransactionId) {
-        const txToEdit = transactions.find(t => t.id === editingTransactionId);
         if (txToEdit) payload.date = txToEdit.date; // Preserve old date
         await updateTransactionMutation.mutateAsync({ id: editingTransactionId, payload });
       } else {
@@ -143,10 +141,13 @@ export default function GlobalTransactionModal() {
 
   return (
     <>
-      <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/70 p-4" onClick={() => setTransactionModalOpen(false)}>
-        <div ref={modalRef} className="bg-[var(--color-card)] border border-border/50 p-8 rounded-2xl shadow-2xl shadow-primary/5 w-full max-w-md animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-          <h2 className="text-2xl font-bold mb-6 tracking-tight text-foreground">{editingTransactionId ? "Edytuj operację" : "Szybka operacja"}</h2>
-          <form onSubmit={handleCreate} className="flex flex-col gap-5">
+      <Modal 
+        isOpen={isTransactionModalOpen} 
+        onClose={() => setTransactionModalOpen(false)} 
+        title={editingTransactionId ? "Edytuj operację" : "Szybka operacja"}
+        maxWidth="md"
+      >
+        <form onSubmit={handleCreate} className="flex flex-col gap-5">
             
             {/* Segmented Control */}
             <div className="flex p-1 bg-muted/40 border border-border rounded-xl">
@@ -280,45 +281,35 @@ export default function GlobalTransactionModal() {
             </div>
 
             <div className="flex justify-end gap-3 mt-4">
-              <button type="button" onClick={() => setTransactionModalOpen(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Anuluj</button>
-              <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90">{editingTransactionId ? "Zaktualizuj" : "Zapisz"}</button>
+              <Button type="button" onClick={() => setTransactionModalOpen(false)} variant="ghost">Anuluj</Button>
+              <Button type="submit" variant="primary">{editingTransactionId ? "Zaktualizuj" : "Zapisz"}</Button>
             </div>
           </form>
-        </div>
-      </div>
+      </Modal>
 
       {/* Modal Ostrzegawczy Ujemnego Salda */}
-      {pendingOverdraft && (
-        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/70 p-4" onClick={() => setPendingOverdraft(null)}>
-          <div className="bg-[var(--color-card)] border border-red-500/30 p-8 rounded-2xl shadow-2xl shadow-red-500/10 w-full max-w-sm animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mb-5">
-              <AlertTriangle size={24} />
-            </div>
-            <h2 className="text-xl font-bold mb-2 tracking-tight text-foreground">Uwaga: Ujemne saldo</h2>
-            <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
-              Ten wydatek spowoduje, że na koncie <span className="font-semibold text-foreground">"{pendingOverdraft.accountName}"</span> zabraknie środków (saldo ujemne).
-              <br/><br/>
-              Czy na pewno chcesz kontynuować i wejść na debet?
-            </p>
-            <div className="flex justify-end gap-3">
-              <button 
-                type="button"
-                onClick={() => setPendingOverdraft(null)} 
-                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg transition-colors"
-              >
-                Anuluj
-              </button>
-              <button 
-                type="button"
-                onClick={() => executeTransaction(pendingOverdraft.amount)} 
-                className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 shadow-md shadow-red-500/20 transition-all"
-              >
-                Tak, zapisz wydatek
-              </button>
-            </div>
+      <Modal 
+        isOpen={!!pendingOverdraft} 
+        onClose={() => setPendingOverdraft(null)} 
+        maxWidth="sm"
+        showCloseButton={false}
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mb-5">
+            <AlertTriangle size={24} />
+          </div>
+          <h2 className="text-xl font-bold mb-2 tracking-tight text-foreground">Uwaga: Ujemne saldo</h2>
+          <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+            Ta transakcja spowoduje zejście poniżej zera na koncie <strong>{pendingOverdraft?.accountName}</strong>. Czy na pewno chcesz kontynuować?
+          </p>
+          <div className="flex w-full gap-3">
+            <Button type="button" onClick={() => setPendingOverdraft(null)} variant="secondary" className="flex-1">Anuluj</Button>
+            <Button type="button" onClick={() => {
+              if (pendingOverdraft) executeTransaction(pendingOverdraft.amount);
+            }} variant="danger" className="flex-1">Kontynuuj</Button>
           </div>
         </div>
-      )}
+      </Modal>
     </>
   );
 }

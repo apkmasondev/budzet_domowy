@@ -46,21 +46,47 @@ fn bulk_insert_transactions(state: State<'_, Mutex<Connection>>, payloads: Vec<d
 }
 
 #[tauri::command]
-fn get_transactions(state: State<'_, Mutex<Connection>>, limit: u32, offset: u32) -> Result<Vec<db::transactions::Transaction>, String> {
+fn get_transactions(
+    state: State<'_, Mutex<Connection>>, 
+    limit: u32, 
+    offset: u32,
+    search: Option<String>,
+    month: Option<String>,
+    type_: Option<String>,
+    sort_by: Option<String>,
+    account_id: Option<i64>
+) -> Result<Vec<db::transactions::Transaction>, String> {
     let conn = state.lock().map_err(|e| e.to_string())?;
-    db::transactions::get_transactions(&conn, limit, offset).map_err(|e| e.to_string())
+    db::transactions::get_transactions(&conn, limit, offset, search, month, type_, sort_by, account_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn get_all_transactions(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::transactions::Transaction>, String> {
+fn get_transaction_months(state: State<'_, Mutex<Connection>>) -> Result<Vec<String>, String> {
     let conn = state.lock().map_err(|e| e.to_string())?;
-    db::transactions::get_transactions(&conn, 1000000, 0).map_err(|e| e.to_string())
+    db::transactions::get_transaction_months(&conn).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn get_transactions_count(state: State<'_, Mutex<Connection>>) -> Result<u32, String> {
+fn get_dashboard_stats(state: State<'_, Mutex<Connection>>, month: String) -> Result<db::transactions::DashboardStats, String> {
     let conn = state.lock().map_err(|e| e.to_string())?;
-    db::transactions::get_transactions_count(&conn).map_err(|e| e.to_string())
+    db::transactions::get_dashboard_stats(&conn, &month).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_transaction_by_id(state: State<'_, Mutex<Connection>>, id: i64) -> Result<db::transactions::Transaction, String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    db::transactions::get_transaction_by_id(&conn, id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_transactions_count(
+    state: State<'_, Mutex<Connection>>,
+    search: Option<String>,
+    month: Option<String>,
+    type_: Option<String>
+) -> Result<u32, String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    db::transactions::get_transactions_count(&conn, search, month, type_).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -315,7 +341,9 @@ pub fn run() {
             delete_account,
             get_categories,
             get_transactions,
-            get_all_transactions,
+            get_transaction_months,
+            get_dashboard_stats,
+            get_transaction_by_id,
             get_transactions_count,
             get_budget_states,
             get_ready_to_assign,

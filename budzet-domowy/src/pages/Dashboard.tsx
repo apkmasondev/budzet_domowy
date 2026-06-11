@@ -2,7 +2,9 @@ import { Wallet, PieChart as PieChartIcon, TrendingDown, TrendingUp, History, Re
 import { useFinanceStore } from "../store/useFinanceStore";
 import SpendingPieChart from "../components/charts/SpendingPieChart";
 import MonthlyCashFlowChart from "../components/charts/MonthlyCashFlowChart";
-import { useAccounts, useCategories, useAllTransactions, useRecurrings, useBudgetStates } from "../lib/queries";
+import { useAccounts, useCategories, useDashboardStats, useRecurrings, useBudgetStates } from "../lib/queries";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../lib/api";
 import { useReadyToAssign } from "../hooks/useReadyToAssign";
 import { useNavigate } from "react-router-dom";
 
@@ -17,30 +19,27 @@ export default function Dashboard() {
   const currentMonth = new Date().toISOString().substring(0, 7); // "YYYY-MM"
 
   const { data: accounts = [], isLoading: isAccountsLoading } = useAccounts();
-  const { data: transactions = [], isLoading: isTransactionsLoading } = useAllTransactions();
+  const { data: dashboardStats, isLoading: isDashboardLoading } = useDashboardStats(currentMonth);
   const { data: budgetStatesArray = [] } = useBudgetStates(currentMonth);
   const { data: categories = [] } = useCategories();
   const { data: recurrings = [] } = useRecurrings();
   const readyToAssign = useReadyToAssign();
 
+  const { data: transactions = [] } = useQuery({
+    queryKey: ["dashboardChartTransactions"],
+    queryFn: () => api.getTransactions(1000000, 0)
+  });
+
   const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
   
-  const expensesThisMonth = transactions
-    .filter(tx => tx.type === "expense" && tx.date.startsWith(currentMonth))
-    .reduce((sum, tx) => sum + tx.amount, 0);
-
-  const incomesThisMonth = transactions
-    .filter(tx => tx.type === "income" && tx.date.startsWith(currentMonth))
-    .reduce((sum, tx) => sum + tx.amount, 0);
+  const expensesThisMonth = dashboardStats?.expenses || 0;
+  const incomesThisMonth = dashboardStats?.incomes || 0;
+  const recentTransactions = dashboardStats?.recent_transactions || [];
 
   const activeSubscriptions = recurrings ? recurrings.filter(r => r.active).length : 0;
   const paidSubscriptionsCount = recurrings
     ? recurrings.filter(r => r.active && r.next_date.substring(0, 7) > currentMonth).length
     : 0;
-
-  const recentTransactions = [...transactions]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5);
 
   const overbudgetAlerts = budgetStatesArray
     .filter(state => state.available < -0.01)
@@ -84,7 +83,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {(isAccountsLoading || isTransactionsLoading) && (
+      {(isAccountsLoading || isDashboardLoading) && (
         <div className="flex justify-center p-8"><p className="text-muted-foreground animate-pulse">Ładowanie kokpitu...</p></div>
       )}
 

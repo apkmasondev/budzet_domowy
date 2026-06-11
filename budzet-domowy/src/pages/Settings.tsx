@@ -7,6 +7,8 @@ import { useDialogStore } from "../store/useDialogStore";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "../lib/queries";
 import { useQueryClient } from "@tanstack/react-query";
+import { Button } from "../components/ui/Button";
+import { Modal } from "../components/ui/Modal";
 
 export default function Settings() {
   const {
@@ -189,8 +191,8 @@ export default function Settings() {
       )}
 
       {/* Wygląd i Motyw */}
-      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-border bg-muted/20">
+      <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-border/50 bg-muted/10">
           <h2 className="text-xl font-semibold flex items-center gap-2"><Palette size={20} className="text-primary" /> Wygląd i Motyw</h2>
         </div>
         <div className="p-6 flex flex-col gap-6">
@@ -227,8 +229,8 @@ export default function Settings() {
       </div>
 
       {/* Bezpieczeństwo i Prywatność */}
-      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-border bg-muted/20">
+      <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-border/50 bg-muted/10">
           <h2 className="text-xl font-semibold flex items-center gap-2"><Shield size={20} className="text-primary" /> Bezpieczeństwo i Prywatność</h2>
         </div>
         <div className="p-6 flex flex-col gap-6">
@@ -239,13 +241,13 @@ export default function Settings() {
               <p className="text-sm text-muted-foreground mt-1">Zabezpiecz aplikację przed niepowołanym dostępem przy uruchamianiu.</p>
             </div>
             {hasPin ? (
-              <button onClick={handleRemovePin} className="border border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/20 px-5 py-2 rounded-xl font-medium transition-all shadow-sm text-sm">
+              <Button onClick={handleRemovePin} variant="danger">
                 Wyłącz PIN
-              </button>
+              </Button>
             ) : (
-              <button onClick={() => setIsPinModalOpen(true)} className="border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 px-5 py-2 rounded-xl font-medium transition-all shadow-sm text-sm">
+              <Button onClick={() => setIsPinModalOpen(true)} variant="primary">
                 Ustaw PIN
-              </button>
+              </Button>
             )}
           </div>
 
@@ -266,16 +268,16 @@ export default function Settings() {
       </div>
 
       {/* Kategorie */}
-      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-border bg-muted/20">
+      <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-border/50 bg-muted/10">
           <h2 className="text-xl font-semibold flex items-center gap-2"><Tag size={20} className="text-primary" /> Zarządzanie Kategoriami</h2>
         </div>
         <div className="p-6 flex flex-col gap-6">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">Dodawaj własne kategorie lub edytuj i usuwaj te, których nie używasz.</p>
-            <button onClick={() => { setEditingCategoryId(null); setCatName(""); setCatType("expense"); setCatColor("#8b5cf6"); setIsCategoryModalOpen(true); }} className="border border-border bg-card hover:bg-muted text-foreground px-5 py-2 rounded-xl font-medium transition-all shadow-sm text-sm">
+            <Button onClick={() => { setEditingCategoryId(null); setCatName(""); setCatType("expense"); setCatColor("#8b5cf6"); setIsCategoryModalOpen(true); }} variant="secondary">
               Dodaj kategorię
-            </button>
+            </Button>
           </div>
 
           <div className="flex flex-wrap gap-3 mt-2">
@@ -306,8 +308,8 @@ export default function Settings() {
       </div>
 
       {/* Kopia zapasowa i reset */}
-      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-border bg-muted/20">
+      <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-border/50 bg-muted/10">
           <h2 className="text-xl font-semibold">Dane i Kopia Zapasowa</h2>
         </div>
         <div className="p-6 flex flex-col gap-6">
@@ -316,9 +318,9 @@ export default function Settings() {
               <h3 className="font-medium text-foreground flex items-center gap-2"><Download size={18} className="text-primary" /> Eksport Bazy Danych</h3>
               <p className="text-sm text-muted-foreground mt-1">Zapisz kopię zapasową w formacie .db.</p>
             </div>
-            <button onClick={handleExport} disabled={isExporting} className="border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 px-6 py-2.5 rounded-xl font-medium transition-all shadow-sm whitespace-nowrap text-sm">
+            <Button onClick={handleExport} disabled={isExporting} variant="primary">
               Pobierz plik
-            </button>
+            </Button>
           </div>
 
           <div className="w-full h-px bg-border/50"></div>
@@ -328,9 +330,9 @@ export default function Settings() {
               <h3 className="font-medium text-foreground flex items-center gap-2"><Upload size={18} className="text-amber-500" /> Import Bazy Danych</h3>
               <p className="text-sm text-muted-foreground mt-1">Odtwórz dane z .db (nadpisze wszystkie dane).</p>
             </div>
-            <button onClick={handleImportClick} disabled={isImporting} className="border border-amber-500/30 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 px-6 py-2.5 rounded-xl font-medium transition-all shadow-sm whitespace-nowrap text-sm">
+            <Button onClick={handleImportClick} disabled={isImporting} variant="warning">
               Wgraj plik
-            </button>
+            </Button>
           </div>
 
           <div className="w-full h-px bg-border/50"></div>
@@ -340,67 +342,62 @@ export default function Settings() {
               <h3 className="font-medium text-red-500 flex items-center gap-2"><Power size={18} /> Twardy Reset</h3>
               <p className="text-sm text-muted-foreground mt-1">Usuwa wszystkie transakcje, konta i budżety. Przywraca apkę do startu.</p>
             </div>
-            <button onClick={handleFactoryReset} className="border border-red-500/50 bg-red-500 text-white hover:bg-red-600 hover:border-red-600 px-6 py-2.5 rounded-xl font-medium transition-all shadow-md shadow-red-500/20 whitespace-nowrap text-sm">
+            <Button onClick={handleFactoryReset} variant="danger">
               Wyczyść dane
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
       {/* PIN Modal */}
-      {isPinModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setIsPinModalOpen(false)}>
-          <div className="bg-[var(--color-card)] border border-border/50 p-8 rounded-2xl shadow-2xl w-full max-w-sm animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-bold mb-4">Ustaw nowy PIN</h2>
-            <form onSubmit={handleSetupPin}>
-              <input
-                type="password"
-                required
-                maxLength={6}
-                pattern="[0-9]*"
-                value={newPin}
-                onChange={e => setNewPin(e.target.value)}
-                className="w-full bg-background border border-border rounded-lg px-3 py-3 text-center text-2xl tracking-[1em] focus:outline-none focus:ring-2 focus:ring-primary mb-6"
-                placeholder="****"
-              />
-              <div className="flex justify-end gap-3">
-                <button type="button" onClick={() => setIsPinModalOpen(false)} className="px-4 py-2 text-sm text-muted-foreground">Anuluj</button>
-                <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">Zapisz PIN</button>
-              </div>
-            </form>
+      <Modal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} title="Ustaw nowy PIN" maxWidth="sm">
+        <form onSubmit={handleSetupPin}>
+          <input
+            type="password"
+            required
+            maxLength={6}
+            pattern="[0-9]*"
+            value={newPin}
+            onChange={e => setNewPin(e.target.value)}
+            className="w-full bg-background border border-border rounded-xl px-3 py-3 text-center text-2xl tracking-[1em] focus:outline-none focus:ring-2 focus:ring-primary mb-6"
+            placeholder="****"
+          />
+          <div className="flex justify-end gap-3">
+            <Button type="button" onClick={() => setIsPinModalOpen(false)} variant="ghost">Anuluj</Button>
+            <Button type="submit" variant="primary">Zapisz PIN</Button>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
 
       {/* Category Modal */}
-      {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => { setIsCategoryModalOpen(false); setEditingCategoryId(null); }}>
-          <div className="bg-[var(--color-card)] border border-border/50 p-8 rounded-2xl shadow-2xl w-full max-w-sm animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-bold mb-4">{editingCategoryId !== null ? "Edytuj kategorię" : "Nowa kategoria"}</h2>
-            <form onSubmit={handleSubmitCategory} className="flex flex-col gap-4">
-              <input
-                required
-                value={catName}
-                onChange={e => setCatName(e.target.value)}
-                className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="Nazwa, np. Netflix"
-              />
-              <select value={catType} onChange={e => setCatType(e.target.value)} className="bg-background border border-border rounded-lg px-3 py-2 text-sm">
-                <option value="expense">Wydatek</option>
-                <option value="income">Przychód</option>
-              </select>
-              <div className="flex items-center gap-3">
-                <label className="text-sm text-muted-foreground">Kolor etykiety:</label>
-                <input type="color" value={catColor} onChange={e => setCatColor(e.target.value)} className="h-8 w-14 bg-transparent cursor-pointer rounded" />
-              </div>
-              <div className="flex justify-end gap-3 mt-2">
-                <button type="button" onClick={() => { setIsCategoryModalOpen(false); setEditingCategoryId(null); }} className="px-4 py-2 text-sm text-muted-foreground">Anuluj</button>
-                <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">{editingCategoryId !== null ? "Zapisz" : "Utwórz"}</button>
-              </div>
-            </form>
+      <Modal 
+        isOpen={isCategoryModalOpen} 
+        onClose={() => { setIsCategoryModalOpen(false); setEditingCategoryId(null); }} 
+        title={editingCategoryId !== null ? "Edytuj kategorię" : "Nowa kategoria"} 
+        maxWidth="sm"
+      >
+        <form onSubmit={handleSubmitCategory} className="flex flex-col gap-4">
+          <input
+            required
+            value={catName}
+            onChange={e => setCatName(e.target.value)}
+            className="bg-background border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            placeholder="Nazwa, np. Netflix"
+          />
+          <select value={catType} onChange={e => setCatType(e.target.value)} className="bg-background border border-border rounded-xl px-3 py-2 text-sm">
+            <option value="expense">Wydatek</option>
+            <option value="income">Przychód</option>
+          </select>
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-muted-foreground">Kolor etykiety:</label>
+            <input type="color" value={catColor} onChange={e => setCatColor(e.target.value)} className="h-8 w-14 bg-transparent cursor-pointer rounded" />
           </div>
-        </div>
-      )}
+          <div className="flex justify-end gap-3 mt-2">
+            <Button type="button" onClick={() => { setIsCategoryModalOpen(false); setEditingCategoryId(null); }} variant="ghost">Anuluj</Button>
+            <Button type="submit" variant="primary">{editingCategoryId !== null ? "Zapisz" : "Utwórz"}</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

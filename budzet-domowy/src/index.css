@@ -2,7 +2,18 @@
 
 @theme {
   --font-sans: "Inter", "Outfit", sans-serif;
+  --color-background: var(--bg-background);
+  --color-foreground: var(--bg-foreground);
+  --color-primary: var(--bg-primary);
+  --color-primary-foreground: var(--bg-primary-foreground);
+  --color-muted: var(--bg-muted);
+  --color-muted-foreground: var(--bg-muted-foreground);
+  --color-border: var(--bg-border);
+  --color-card: var(--bg-card);
+  --color-card-foreground: var(--bg-card-foreground);
 }
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 body {
   font-family: "Inter", sans-serif;
@@ -10,28 +21,28 @@ body {
 
 :root {
   color-scheme: light;
-  --color-background: #f8fafc;
-  --color-foreground: #0f172a;
-  --color-primary: #4f46e5;
-  --color-primary-foreground: #ffffff;
-  --color-muted: #e2e8f0;
-  --color-muted-foreground: #64748b;
-  --color-border: #cbd5e1;
-  --color-card: #ffffff;
-  --color-card-foreground: #0f172a;
+  --bg-background: #f8fafc;
+  --bg-foreground: #0f172a;
+  --bg-primary: #4f46e5;
+  --bg-primary-foreground: #ffffff;
+  --bg-muted: #e2e8f0;
+  --bg-muted-foreground: #64748b;
+  --bg-border: #cbd5e1;
+  --bg-card: #ffffff;
+  --bg-card-foreground: #0f172a;
 }
 
 .dark {
   color-scheme: dark;
-  --color-background: #111113;
-  --color-foreground: #f4f4f5;
-  --color-primary: #818cf8;
-  --color-primary-foreground: #ffffff;
-  --color-muted: #27272a;
-  --color-muted-foreground: #a1a1aa;
-  --color-border: #3f3f46;
-  --color-card: #1c1c1f;
-  --color-card-foreground: #f4f4f5;
+  --bg-background: #111113;
+  --bg-foreground: #f4f4f5;
+  --bg-primary: #818cf8;
+  --bg-primary-foreground: #ffffff;
+  --bg-muted: #27272a;
+  --bg-muted-foreground: #a1a1aa;
+  --bg-border: #3f3f46;
+  --bg-card: #1c1c1f;
+  --bg-card-foreground: #f4f4f5;
 }
 
 /* Base styles for a premium look */
@@ -40,8 +51,8 @@ html {
 }
 
 body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
+  background-color: var(--bg-background);
+  color: var(--bg-foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -49,8 +60,8 @@ body {
 
 /* Dropdown options global styles */
 option {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
+  background-color: var(--bg-background);
+  color: var(--bg-foreground);
 }
 
 /* Custom scrollbar for desktop app feel */

@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useDialogStore } from "../store/useDialogStore";
 import { Plus, Repeat, Trash2, Calendar, CreditCard, Layers, Bot, EyeOff, Pencil } from "lucide-react";
 import { useCategories, useAccounts, useRecurrings, useAddRecurring, useUpdateRecurring, useDeleteRecurring, useRecurringSuggestions, useIgnoreSubscriptionSuggestion } from "../lib/queries";
+import { Button } from "../components/ui/Button";
+import { Modal } from "../components/ui/Modal";
+import { EmptyState } from "../components/ui/EmptyState";
 
 export default function Subscriptions() {
   const { data: recurrings = [], isLoading } = useRecurrings();
@@ -107,13 +110,14 @@ export default function Subscriptions() {
           </h1>
           <p className="text-muted-foreground mt-1">Zarządzaj płatnościami cyklicznymi, które księgują się same.</p>
         </div>
-        <button
+        <Button
           onClick={() => { setEditingId(null); setFormData(defaultFormData); setIsModalOpen(true); }}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-xl font-medium hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+          variant="primary"
+          className="shadow-lg shadow-primary/20"
         >
           <Plus size={20} />
           Nowa subskrypcja
-        </button>
+        </Button>
       </div>
 
       {suggestions.length > 0 && (
@@ -131,19 +135,20 @@ export default function Subscriptions() {
                   <p className="text-sm opacity-80 mb-6">Wykryto powtarzalną płatność. Średnio co miesiąc.</p>
                 </div>
                 <div className="flex gap-2 mt-auto">
-                  <button 
+                  <Button 
                     onClick={() => openModalWithSuggestion(sug)}
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-sm font-medium transition-colors shadow-md"
+                    variant="primary"
+                    className="flex-1"
                   >
                     Dodaj
-                  </button>
-                  <button 
+                  </Button>
+                  <Button 
                     onClick={() => showConfirm("Ignoruj", `Czy na pewno chcesz na zawsze ukryć sugestię dla "${sug.description}"?`, () => ignoreSuggestionMutation.mutate(sug.description))}
-                    className="flex items-center justify-center bg-card hover:bg-muted text-muted-foreground border border-border px-3 py-2 rounded-xl text-sm font-medium transition-colors"
+                    variant="secondary"
                     title="Nie pokazuj ponownie"
                   >
                     <EyeOff size={18} />
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -155,12 +160,21 @@ export default function Subscriptions() {
         <div className="flex justify-center p-8"><p className="text-muted-foreground animate-pulse">Ładowanie subskrypcji...</p></div>
       )}
 
+      {!isLoading && recurrings.length === 0 ? (
+        <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl">
+          <EmptyState 
+            icon={Repeat}
+            title="Brak aktywnych subskrypcji"
+            description="Dodaj swoje stałe rachunki i zapomnij o ich ręcznym księgowaniu."
+          />
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {recurrings.map(rec => {
           const cat = categories.find(c => c.id === rec.category_id);
           const acc = accounts.find(a => a.id === rec.account_id);
           return (
-            <div key={rec.id} className="bg-card border border-border rounded-2xl p-6 shadow-sm relative group overflow-hidden print:break-inside-avoid">
+            <div key={rec.id} className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-6 shadow-sm relative group overflow-hidden print:break-inside-avoid">
               <div className="absolute top-0 left-0 w-full h-1" style={{ backgroundColor: cat?.color || '#3b82f6' }} />
               
               <div className="flex justify-between items-start mb-4">
@@ -223,62 +237,54 @@ export default function Subscriptions() {
             </div>
           );
         })}
-        {recurrings.length === 0 && (
-          <div className="col-span-full py-12 text-center border border-dashed border-border rounded-2xl bg-muted/30">
-            <Repeat size={48} className="mx-auto text-muted-foreground opacity-50 mb-4" />
-            <h3 className="text-xl font-bold mb-2">Brak aktywnych subskrypcji</h3>
-            <p className="text-muted-foreground">Dodaj swoje stałe rachunki i zapomnij o ich ręcznym księgowaniu.</p>
-          </div>
-        )}
       </div>
-
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4" onClick={() => { setIsModalOpen(false); setActiveSuggestion(null); }}>
-          <div className="bg-[var(--color-card)] border border-border/50 w-full max-w-md rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="p-6 border-b border-border">
-              <h2 className="text-xl font-bold">{editingId ? 'Edytuj subskrypcję' : 'Nowa Płatność Cykliczna'}</h2>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Nazwa (np. Netflix, Czynsz)</label>
-                <input required type="text" className="w-full bg-background border border-border rounded-xl px-4 py-2" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Kwota (PLN)</label>
-                <input required type="number" step="0.01" className="w-full bg-background border border-border rounded-xl px-4 py-2" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Konto obciążane</label>
-                <select required className="w-full bg-background border border-border rounded-xl px-4 py-2" value={formData.account_id} onChange={e => setFormData({...formData, account_id: e.target.value})}>
-                  <option value="">Wybierz konto...</option>
-                  {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name} ({acc.balance} {acc.currency})</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Kategoria</label>
-                <select required className="w-full bg-background border border-border rounded-xl px-4 py-2" value={formData.category_id} onChange={e => setFormData({...formData, category_id: e.target.value})}>
-                  <option value="">Wybierz kategorię...</option>
-                  {expenseCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Pierwsza płatność</label>
-                  <input required type="date" className="w-full bg-background border border-border rounded-xl px-4 py-2" value={formData.next_date} onChange={e => setFormData({...formData, next_date: e.target.value, day_of_month: e.target.value.split('-')[2]})} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Dzień rozliczenia</label>
-                  <input required type="number" min="1" max="31" className="w-full bg-background border border-border rounded-xl px-4 py-2" value={formData.day_of_month} onChange={e => setFormData({...formData, day_of_month: e.target.value})} />
-                </div>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => { setIsModalOpen(false); setActiveSuggestion(null); }} className="flex-1 px-4 py-2 border border-border rounded-xl font-medium hover:bg-muted">Anuluj</button>
-                <button type="submit" className="flex-1 bg-primary text-primary-foreground px-4 py-2 rounded-xl font-medium hover:bg-primary/90">Zapisz</button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
+
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => { setIsModalOpen(false); setActiveSuggestion(null); }} 
+        title={editingId ? 'Edytuj subskrypcję' : 'Nowa Płatność Cykliczna'}
+        maxWidth="md"
+      >
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Nazwa (np. Netflix, Czynsz)</label>
+            <input required type="text" className="w-full bg-background border border-border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Kwota (PLN)</label>
+            <input required type="number" step="0.01" className="w-full bg-background border border-border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Konto obciążane</label>
+            <select required className="w-full bg-background border border-border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50" value={formData.account_id} onChange={e => setFormData({...formData, account_id: e.target.value})}>
+              <option value="">Wybierz konto...</option>
+              {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name} ({acc.balance} {acc.currency})</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Kategoria</label>
+            <select required className="w-full bg-background border border-border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50" value={formData.category_id} onChange={e => setFormData({...formData, category_id: e.target.value})}>
+              <option value="">Wybierz kategorię...</option>
+              {expenseCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Pierwsza płatność</label>
+              <input required type="date" className="w-full bg-background border border-border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50" value={formData.next_date} onChange={e => setFormData({...formData, next_date: e.target.value, day_of_month: e.target.value.split('-')[2]})} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Dzień rozliczenia</label>
+              <input required type="number" min="1" max="31" className="w-full bg-background border border-border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50" value={formData.day_of_month} onChange={e => setFormData({...formData, day_of_month: e.target.value})} />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button type="button" onClick={() => { setIsModalOpen(false); setActiveSuggestion(null); }} variant="ghost">Anuluj</Button>
+            <Button type="submit" variant="primary">Zapisz</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

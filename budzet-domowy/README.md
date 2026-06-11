@@ -71,12 +71,17 @@ Rozpoczęto wdrażanie potężnej architektonicznej aktualizacji. Do tej pory uk
 - [x] Focus Trap w globalnych modalach, pełna zdatność klawiatury (`Escape`), moduł Autouzupełniania Tagów (Hashtagów) z "w-locie" listą podpowiedzi oraz interaktywne tagi w historii potrafiące aktywować globalne filtrowanie po kliknięciu.
 - [x] Filtr 1M w zaawansowanej analityce ułatwiający rozeznanie się w budżecie w cyklu miesięcznym. Pasek wyszukiwania transakcji doposażony w super-szybkie filtrowanie po dacie. Zmiana nazewnictwa "Wszystkie/Wszystkie okresy" na "ALL" w Raportach oraz Transakcjach w celu oszczędności miejsca. Inteligentny Eksport CSV oparty na przefiltrowanym widoku.
 - [x] Wskaźniki opłacenia subskrypcji w bieżącym miesiącu na Dashboardzie i liście zleceń. Interaktywne sortowanie kolumn (alfabetycznie oraz po kwotach) i przyklejona belka nagłówków (sticky head) w Budżetach. Złoty motyw wizualny z podwyższonym kontrastem w trybie jasnym, ikona trofeum i odznaka sukcesu dla zrealizowanych celów oszczędnościowych. Klikalność ostatnich transakcji na Dashboardzie przenosząca do historii transakcji z autofiltrem. Pełna edycja i personalizacja istniejących kategorii w Ustawieniach. Poprawiony kontrast filtrów zakresu dat i kont w sekcji Raporty (tryb ciemny). Zoptymalizowana tabela budżetowa: brak prześwitywania wierszy pod nagłówkiem (dzięki border-collapse i solidnemu bg-card na thead/tr/th) oraz dynamicznie dostosowywana wysokość listy (max-h-[calc(100vh-340px)]) dla pełnego wykorzystania ekranu.
+- [x] Faza 20 (UX/UI Audit & Refactoring): Kompleksowy audyt wizualny i interaktywny całej aplikacji. Wdrożenie ustandaryzowanego systemu komponentów (`Button`, `Modal`, `EmptyState`) i spójnego języka projektowego w całej aplikacji. Usunięcie niespójnych stylów `div`, zaimplementowanie efektu szronionego szkła (`glassmorphism`) w kontenerach oraz pełna optymalizacja palety kolorów pod kątem wysokiej czytelności zarówno w trybie ciemnym, jak i jasnym (z autorskim konfiguratorem `.dark` dla Tailwind v4).
 
 Wszystkie cele projektowe w tym wydaniu zostały zrealizowane! 🎉
 
 ## Wersja 2.0.1 (Patch Architektoniczny)
 
 Wydanie skupione w 100% na spłaceniu długu technologicznego na warstwie Rust & SQLite. Wyeliminowano problem sierocych transferów, dodano brakujące indeksy i powiązano relacyjnie wpłaty na poczet celów z bazą oszczędności. Całkowicie uodporniono mechanizm importowania bazy w systemie plików Windows na zjawisko blokowania uchwytów (File Lock) przez antywirusy.
+
+## Wersja 2.0.2 (Performance & Catch-Up Update)
+
+Ogromny nacisk na optymalizację użycia pamięci RAM (usunięcie kosztownego globalnego stanu wszystkich transakcji) oraz przeniesienie ciężaru paginacji, filtrowania i sortowania na silnik bazy SQLite w języku Rust. Dodatkowo uszczelniono "Catch-Up" powtarzalnych płatności cyklicznych (smart-while loop, iteracyjnie nadrabiający bardzo długą nieobecność użytkownika w aplikacji) oraz powiązano relacyjność kasowanych kont z bilansami uiszczonych celów oszczędnościowych.
 
 ## Uruchamianie lokalne
 

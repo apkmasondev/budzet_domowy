@@ -19,10 +19,10 @@ export const useCategories = () => {
 
 import { useInfiniteQuery } from "@tanstack/react-query";
 
-export const useTransactions = () => {
+export const useTransactions = (search?: string, month?: string, type_?: string, sortBy?: string) => {
   return useInfiniteQuery({
-    queryKey: ["transactions"],
-    queryFn: ({ pageParam = 0 }) => api.getTransactions(50, pageParam),
+    queryKey: ["transactions", search, month, type_, sortBy],
+    queryFn: ({ pageParam = 0 }) => api.getTransactions(50, pageParam, search, month, type_, sortBy),
     getNextPageParam: (lastPage, allPages) => {
       return lastPage.length === 50 ? allPages.length * 50 : undefined;
     },
@@ -30,10 +30,25 @@ export const useTransactions = () => {
   });
 };
 
-export const useAllTransactions = () => {
+export const useTransaction = (id: number | null) => {
   return useQuery({
-    queryKey: ["transactions", "all"],
-    queryFn: api.getAllTransactions,
+    queryKey: ["transaction", id],
+    queryFn: () => id ? api.getTransactionById(id) : null,
+    enabled: !!id,
+  });
+};
+
+export const useTransactionMonths = () => {
+  return useQuery({
+    queryKey: ["transactionMonths"],
+    queryFn: api.getTransactionMonths,
+  });
+};
+
+export const useDashboardStats = (month: string) => {
+  return useQuery({
+    queryKey: ["dashboardStats", month],
+    queryFn: () => api.getDashboardStats(month),
   });
 };
 
@@ -94,6 +109,7 @@ export const useAddTransaction = () => {
     mutationFn: api.createTransaction,
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["importTransactions"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
       queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
@@ -113,6 +129,7 @@ export const useUpdateTransaction = () => {
     mutationFn: ({ id, payload }: { id: number, payload: Parameters<typeof api.updateTransaction>[1] }) => api.updateTransaction(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["importTransactions"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
       queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
@@ -129,6 +146,7 @@ export const useDeleteTransaction = () => {
     mutationFn: api.deleteTransaction,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["importTransactions"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
       queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
@@ -145,6 +163,7 @@ export const useBulkAddTransactions = () => {
     mutationFn: api.bulkInsertTransactions,
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["importTransactions"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
       queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
@@ -190,6 +209,7 @@ export const useDeleteAccount = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["importTransactions"] });
       queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
       queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
     },
@@ -259,6 +279,7 @@ export const useAddToGoal = () => {
       queryClient.invalidateQueries({ queryKey: ["goals"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["importTransactions"] });
       queryClient.invalidateQueries({ queryKey: ["budgetStates"] });
       queryClient.invalidateQueries({ queryKey: ["readyToAssign"] });
     },

@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { ArrowUpRight, ArrowDownRight, Target, Activity, Wallet } from "lucide-react";
-import { useAllTransactions, useAccounts, useCategories } from "../lib/queries";
+import { useAccounts, useCategories } from "../lib/queries";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../lib/api";
 import { useFinanceStore } from "../store/useFinanceStore";
 import BalanceTrendChart from "../components/charts/BalanceTrendChart";
 import MonthlyCashFlowChart from "../components/charts/MonthlyCashFlowChart";
@@ -12,7 +14,10 @@ const formatCurrency = (amount: number, privacyMode: boolean) => {
 };
 
 export default function Reports() {
-  const { data: allTransactions = [] } = useAllTransactions();
+  const { data: allTransactions = [] } = useQuery({
+    queryKey: ["reportTransactions"],
+    queryFn: () => api.getTransactions(1000000, 0)
+  });
   const { data: allAccounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
   const { privacyMode } = useFinanceStore();
@@ -129,9 +134,9 @@ export default function Reports() {
         </div>
         
         {/* Panel Sterowania */}
-        <div className="flex flex-row flex-wrap items-center gap-4 bg-card border border-border p-3 rounded-2xl shadow-sm print:hidden w-full xl:w-auto">
+        <div className="flex flex-row flex-wrap items-center gap-4 bg-card/60 backdrop-blur-md border border-border/50 p-3 rounded-2xl shadow-sm print:hidden w-full xl:w-auto">
           {/* Zakresy dat */}
-          <div className="flex items-center flex-wrap gap-1 bg-background p-1 rounded-xl border border-border shadow-inner">
+          <div className="flex items-center flex-wrap gap-1 bg-background/50 backdrop-blur-md p-1 rounded-xl border border-border/50 shadow-inner">
             {(["1M", "3M", "6M", "12M", "YTD", "ALL"] as const).map(range => (
               <button
                 key={range}
@@ -186,7 +191,7 @@ export default function Reports() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-card border border-border p-5 rounded-2xl shadow-sm relative overflow-hidden group">
+        <div className="bg-card/60 backdrop-blur-md border border-border/50 p-5 rounded-2xl shadow-sm relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-bl-full -z-10 group-hover:scale-110 transition-transform" />
           <p className="text-sm font-medium text-muted-foreground flex items-center gap-2 mb-2">
             <ArrowUpRight size={16} className="text-emerald-500" /> Całkowity Przychód
@@ -196,7 +201,7 @@ export default function Reports() {
           </p>
         </div>
 
-        <div className="bg-card border border-border p-5 rounded-2xl shadow-sm relative overflow-hidden group">
+        <div className="bg-card/60 backdrop-blur-md border border-border/50 p-5 rounded-2xl shadow-sm relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/10 rounded-bl-full -z-10 group-hover:scale-110 transition-transform" />
           <p className="text-sm font-medium text-muted-foreground flex items-center gap-2 mb-2">
             <ArrowDownRight size={16} className="text-rose-500" /> Całkowite Wydatki
@@ -206,7 +211,7 @@ export default function Reports() {
           </p>
         </div>
 
-        <div className="bg-card border border-border p-5 rounded-2xl shadow-sm relative overflow-hidden group">
+        <div className="bg-card/60 backdrop-blur-md border border-border/50 p-5 rounded-2xl shadow-sm relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-bl-full -z-10 group-hover:scale-110 transition-transform" />
           <p className="text-sm font-medium text-muted-foreground flex items-center gap-2 mb-2">
             <Activity size={16} className="text-indigo-500" /> Wartość Netto (Net Flow)
@@ -216,7 +221,7 @@ export default function Reports() {
           </p>
         </div>
 
-        <div className="bg-card border border-border p-5 rounded-2xl shadow-sm relative overflow-hidden group">
+        <div className="bg-card/60 backdrop-blur-md border border-border/50 p-5 rounded-2xl shadow-sm relative overflow-hidden group">
           <div className={`absolute top-0 right-0 w-24 h-24 rounded-bl-full -z-10 group-hover:scale-110 transition-transform ${kpi.savingsRate >= 15 ? 'bg-emerald-500/10' : kpi.savingsRate > 0 ? 'bg-amber-500/10' : 'bg-rose-500/10'}`} />
           <p className="text-sm font-medium text-muted-foreground flex items-center gap-2 mb-2">
             <Target size={16} className={kpi.savingsRate >= 15 ? 'text-emerald-500' : kpi.savingsRate > 0 ? 'text-amber-500' : 'text-rose-500'} /> Savings Rate
@@ -232,7 +237,7 @@ export default function Reports() {
 
       {/* Główne Wykresy */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+        <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-6 shadow-sm">
           <h3 className="text-lg font-bold mb-6 text-foreground flex items-center gap-2">
             Przychody vs Wydatki (Cash-Flow)
           </h3>
@@ -242,7 +247,7 @@ export default function Reports() {
           />
         </div>
         
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+        <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-6 shadow-sm">
           <h3 className="text-lg font-bold mb-6 text-foreground flex items-center gap-2">
             Trend Salda (Net Worth)
           </h3>
@@ -257,7 +262,7 @@ export default function Reports() {
       {/* Dolny Rząd: Struktura i Listy */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Koło */}
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm flex flex-col">
+        <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-6 shadow-sm flex flex-col">
           <h3 className="text-lg font-bold mb-6 text-foreground">
             Struktura Wydatków
           </h3>
@@ -267,7 +272,7 @@ export default function Reports() {
         </div>
 
         {/* Top Kategorie */}
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+        <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-6 shadow-sm">
           <h3 className="text-lg font-bold mb-6 text-foreground">
             Top Złodzieje Budżetu
           </h3>
@@ -298,7 +303,7 @@ export default function Reports() {
         </div>
 
         {/* Top Transakcje */}
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+        <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-6 shadow-sm">
           <h3 className="text-lg font-bold mb-6 text-foreground">
             Największe Transakcje
           </h3>

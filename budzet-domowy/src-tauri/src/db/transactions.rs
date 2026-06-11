@@ -98,18 +98,85 @@ pub fn create_transaction(conn: &mut Connection, payload: CreateTransactionPaylo
     Ok(last_id)
 }
 
-pub fn get_transactions(conn: &Connection, limit: u32, offset: u32) -> Result<Vec<Transaction>> {
-    let mut stmt = conn.prepare("
+pub fn get_transactions(
+    conn: &Connection, 
+    limit: u32, 
+    offset: u32,
+    search: Option<String>,
+    month: Option<String>,
+    type_: Option<String>,
+    sort_by: Option<String>,
+    account_id: Option<i64>
+) -> Result<Vec<Transaction>> {
+    let mut query = "
         SELECT t.id, t.account_id, t.category_id, t.amount, t.type, t.description, t.date, t.transfer_to_id, t.created_at, t.updated_at,
                GROUP_CONCAT(tg.name, ',') as tags_str
         FROM transactions t
         LEFT JOIN transaction_tags tt ON t.id = tt.transaction_id
         LEFT JOIN tags tg ON tt.tag_id = tg.id
-        GROUP BY t.id
-        ORDER BY t.date DESC, t.id DESC 
-        LIMIT ?1 OFFSET ?2
-    ")?;
-    let iter = stmt.query_map(params![limit, offset], |row| {
+        LEFT JOIN categories c ON t.category_id = c.id
+        WHERE 1=1
+    ".to_string();
+
+    let mut args: Vec<Box<dyn rusqlite::ToSql>> = vec![];
+
+    if let Some(s) = search {
+        if !s.trim().is_empty() {
+            let s_trim = s.trim();
+            if s_trim.starts_with('#') {
+                let tag_search = s_trim[1..].to_lowercase();
+                query.push_str(" AND EXISTS (SELECT 1 FROM transaction_tags tt2 JOIN tags tg2 ON tt2.tag_id = tg2.id WHERE tt2.transaction_id = t.id AND LOWER(tg2.name) LIKE ?) ");
+                args.push(Box::new(format!("%{}%", tag_search)));
+            } else {
+                query.push_str(" AND (LOWER(t.description) LIKE ? OR LOWER(c.name) LIKE ? OR CAST(t.amount AS TEXT) LIKE ? OR EXISTS (SELECT 1 FROM transaction_tags tt2 JOIN tags tg2 ON tt2.tag_id = tg2.id WHERE tt2.transaction_id = t.id AND LOWER(tg2.name) LIKE ?)) ");
+                let search_pattern = format!("%{}%", s_trim.to_lowercase());
+                args.push(Box::new(search_pattern.clone()));
+                args.push(Box::new(search_pattern.clone()));
+                args.push(Box::new(search_pattern.clone()));
+                args.push(Box::new(search_pattern));
+            }
+        }
+    }
+
+    if let Some(m) = month {
+        if !m.is_empty() {
+            query.push_str(" AND t.date LIKE ? ");
+            args.push(Box::new(format!("{}%", m)));
+        }
+    }
+
+    if let Some(t) = type_ {
+        if !t.is_empty() && t != "all" {
+            query.push_str(" AND t.type = ? ");
+            args.push(Box::new(t));
+        }
+    }
+
+    if let Some(acc_id) = account_id {
+        query.push_str(" AND (t.account_id = ? OR t.transfer_to_id = ?) ");
+        args.push(Box::new(acc_id));
+        args.push(Box::new(acc_id));
+    }
+
+    query.push_str(" GROUP BY t.id ");
+
+    let order_clause = match sort_by.as_deref() {
+        Some("date_asc") => " ORDER BY t.date ASC, t.id ASC ",
+        Some("amount_desc") => " ORDER BY t.amount DESC, t.id DESC ",
+        Some("amount_asc") => " ORDER BY t.amount ASC, t.id ASC ",
+        _ => " ORDER BY t.date DESC, t.id DESC ",
+    };
+    query.push_str(order_clause);
+
+    query.push_str(" LIMIT ? OFFSET ? ");
+    args.push(Box::new(limit));
+    args.push(Box::new(offset));
+
+    let mut stmt = conn.prepare(&query)?;
+    
+    let params_refs: Vec<&dyn rusqlite::ToSql> = args.iter().map(|arg| arg.as_ref()).collect();
+
+    let iter = stmt.query_map(rusqlite::params_from_iter(params_refs), |row| {
         let id: i64 = row.get(0)?;
         let tags_str: Option<String> = row.get(10)?;
         let tags = tags_str.map(|s| s.split(',').map(|tag| tag.to_string()).collect());
@@ -137,9 +204,103 @@ pub fn get_transactions(conn: &Connection, limit: u32, offset: u32) -> Result<Ve
     Ok(transactions)
 }
 
-pub fn get_transactions_count(conn: &Connection) -> Result<u32> {
-    let mut stmt = conn.prepare("SELECT COUNT(*) FROM transactions")?;
-    stmt.query_row([], |row| row.get(0))
+pub fn get_transactions_count(
+    conn: &Connection,
+    search: Option<String>,
+    month: Option<String>,
+    type_: Option<String>
+) -> Result<u32> {
+    let mut query = "
+        SELECT COUNT(DISTINCT t.id) FROM transactions t
+        LEFT JOIN categories c ON t.category_id = c.id
+        WHERE 1=1
+    ".to_string();
+
+    let mut args: Vec<Box<dyn rusqlite::ToSql>> = vec![];
+
+    if let Some(s) = search {
+        if !s.trim().is_empty() {
+            let s_trim = s.trim();
+            if s_trim.starts_with('#') {
+                let tag_search = s_trim[1..].to_lowercase();
+                query.push_str(" AND EXISTS (SELECT 1 FROM transaction_tags tt2 JOIN tags tg2 ON tt2.tag_id = tg2.id WHERE tt2.transaction_id = t.id AND LOWER(tg2.name) LIKE ?) ");
+                args.push(Box::new(format!("%{}%", tag_search)));
+            } else {
+                query.push_str(" AND (LOWER(t.description) LIKE ? OR LOWER(c.name) LIKE ? OR CAST(t.amount AS TEXT) LIKE ? OR EXISTS (SELECT 1 FROM transaction_tags tt2 JOIN tags tg2 ON tt2.tag_id = tg2.id WHERE tt2.transaction_id = t.id AND LOWER(tg2.name) LIKE ?)) ");
+                let search_pattern = format!("%{}%", s_trim.to_lowercase());
+                args.push(Box::new(search_pattern.clone()));
+                args.push(Box::new(search_pattern.clone()));
+                args.push(Box::new(search_pattern.clone()));
+                args.push(Box::new(search_pattern));
+            }
+        }
+    }
+
+    if let Some(m) = month {
+        if !m.is_empty() {
+            query.push_str(" AND t.date LIKE ? ");
+            args.push(Box::new(format!("{}%", m)));
+        }
+    }
+
+    if let Some(t) = type_ {
+        if !t.is_empty() && t != "all" {
+            query.push_str(" AND t.type = ? ");
+            args.push(Box::new(t));
+        }
+    }
+
+    let mut stmt = conn.prepare(&query)?;
+    let params_refs: Vec<&dyn rusqlite::ToSql> = args.iter().map(|arg| arg.as_ref()).collect();
+    stmt.query_row(rusqlite::params_from_iter(params_refs), |row| row.get(0))
+}
+
+pub fn get_transaction_months(conn: &Connection) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare("SELECT DISTINCT substr(date, 1, 7) FROM transactions ORDER BY 1 DESC")?;
+    let iter = stmt.query_map([], |row| row.get(0))?;
+    let mut months = Vec::new();
+    for m in iter {
+        months.push(m?);
+    }
+    Ok(months)
+}
+
+#[derive(serde::Serialize)]
+pub struct DashboardStats {
+    pub expenses: f64,
+    pub incomes: f64,
+    pub recent_transactions: Vec<Transaction>,
+}
+
+pub fn get_dashboard_stats(conn: &Connection, month: &str) -> Result<DashboardStats> {
+    let mut expenses = 0.0;
+    let mut incomes = 0.0;
+    
+    let mut stmt = conn.prepare("SELECT type, amount FROM transactions WHERE date LIKE ?")?;
+    let month_param = format!("{}%", month);
+    let iter = stmt.query_map(params![month_param], |row| {
+        let t: String = row.get(0)?;
+        let a: f64 = row.get(1)?;
+        Ok((t, a))
+    })?;
+    
+    for item in iter {
+        if let Ok((t, a)) = item {
+            if t == "expense" {
+                expenses += a;
+            } else if t == "income" {
+                incomes += a;
+            }
+        }
+    }
+    
+    let recent_transactions = get_transactions(conn, 5, 0, None, None, None, None, None)?;
+    
+    Ok(DashboardStats {
+        expenses,
+        incomes,
+        recent_transactions
+    })
 }
 
 pub fn bulk_insert_transactions(conn: &mut Connection, payloads: Vec<CreateTransactionPayload>) -> Result<usize> {
@@ -339,7 +500,15 @@ pub fn update_transaction(conn: &mut Connection, id: i64, payload: UpdateTransac
     )?;
 
     if let Some(gid) = goal_id {
-        let diff = payload.amount - old_amount;
+        let mut old_contribution = 0.0;
+        if old_type_ == "expense" {
+            old_contribution = old_amount;
+        }
+        let mut new_contribution = 0.0;
+        if payload.type_ == "expense" {
+            new_contribution = payload.amount;
+        }
+        let diff = new_contribution - old_contribution;
         tx.execute("UPDATE goals SET current_amount = current_amount + ?1 WHERE id = ?2", params![diff, gid])?;
     }
 
@@ -357,4 +526,37 @@ pub fn update_transaction(conn: &mut Connection, id: i64, payload: UpdateTransac
 
     tx.commit()?;
     Ok(())
+}
+
+pub fn get_transaction_by_id(conn: &Connection, id: i64) -> Result<Transaction> {
+    let mut stmt = conn.prepare("
+        SELECT t.id, t.account_id, t.category_id, t.amount, t.type, t.description, t.date, t.transfer_to_id, t.created_at, t.updated_at,
+               GROUP_CONCAT(tg.name, ',') as tags_str
+        FROM transactions t
+        LEFT JOIN transaction_tags tt ON t.id = tt.transaction_id
+        LEFT JOIN tags tg ON tt.tag_id = tg.id
+        WHERE t.id = ?1
+        GROUP BY t.id
+    ")?;
+
+    let row = stmt.query_row(params![id], |row| {
+        let tags_str: Option<String> = row.get(10)?;
+        let tags = tags_str.map(|s| s.split(',').map(|t| t.to_string()).collect());
+
+        Ok(Transaction {
+            id: row.get(0)?,
+            account_id: row.get(1)?,
+            category_id: row.get(2)?,
+            amount: row.get(3)?,
+            type_: row.get(4)?,
+            description: row.get(5)?,
+            date: row.get(6)?,
+            transfer_to_id: row.get(7)?,
+            created_at: row.get(8)?,
+            updated_at: row.get(9)?,
+            tags,
+        })
+    })?;
+
+    Ok(row)
 }

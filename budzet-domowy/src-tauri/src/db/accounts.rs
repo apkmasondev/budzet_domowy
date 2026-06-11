@@ -92,6 +92,19 @@ pub fn delete_account(conn: &mut Connection, id: i64) -> Result<()> {
         }
     }
 
+    // Obsługa wycofania środków z celów przed usunięciem powiązanych transakcji
+    let goal_txs: Vec<(i64, f64)> = {
+        let mut stmt = tx.prepare("SELECT goal_id, amount FROM transactions WHERE (account_id = ?1 OR transfer_to_id = ?1) AND type = 'expense' AND goal_id IS NOT NULL")?;
+        let res = stmt.query_map(params![id], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        })?.collect::<Result<Vec<_>, _>>()?;
+        res
+    };
+
+    for (gid, amount) in goal_txs {
+        tx.execute("UPDATE goals SET current_amount = current_amount - ?1 WHERE id = ?2", params![amount, gid])?;
+    }
+
     tx.execute("DELETE FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE account_id = ?1)", params![id])?;
     tx.execute("DELETE FROM transactions WHERE account_id = ?1 OR transfer_to_id = ?1", params![id])?;
     tx.execute("UPDATE recurring SET account_id = NULL WHERE account_id = ?1", params![id])?;

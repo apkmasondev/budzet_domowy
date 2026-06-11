@@ -1,5 +1,5 @@
-use rusqlite::{Connection, Result, params};
-use serde::{Deserialize, Serialize};
+use rusqlite::{Connection, Result};
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Serialize, Clone)]
@@ -10,11 +10,6 @@ pub struct CategoryState {
     pub activity: f64,
     pub available: f64,
     pub overspent: f64,
-}
-
-struct MonthlyData {
-    assigned: f64,
-    activity: f64,
 }
 
 pub fn calculate_zbb_states(conn: &Connection) -> Result<HashMap<String, HashMap<i64, CategoryState>>> {
@@ -82,7 +77,10 @@ pub fn calculate_zbb_states(conn: &Connection) -> Result<HashMap<String, HashMap
         for &cat_id in &cat_ids {
             let mut overspent = 0.0;
             let rollover = if let Some(prev) = prev_month {
-                let prev_avail = states.get(prev).unwrap().get(&cat_id).unwrap().available;
+                let prev_avail = states.get(prev)
+                    .and_then(|m| m.get(&cat_id))
+                    .map(|s| s.available)
+                    .unwrap_or(0.0);
                 if prev_avail < 0.0 {
                     overspent = prev_avail;
                 }

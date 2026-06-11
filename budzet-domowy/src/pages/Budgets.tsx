@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useDialogStore } from "../store/useDialogStore";
 import { Copy, Info, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle } from "lucide-react";
 import { useCategories, useUpsertBudget, useCopyBudgets, useBudgetStates, useReadyToAssignData } from "../lib/queries";
+import { Button } from "../components/ui/Button";
 
 export default function Budgets() {
   const { showConfirm } = useDialogStore();
@@ -132,18 +133,18 @@ export default function Budgets() {
             onChange={(e) => setSelectedMonth(e.target.value)}
             className="bg-card border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-sm"
           />
-          <button 
+          <Button 
             onClick={handleCopy}
             title="Skopiuj limity z poprzedniego miesiąca"
-            className="bg-secondary text-secondary-foreground px-4 py-2 text-sm font-medium rounded-lg hover:bg-secondary/80 transition-colors shadow-sm flex items-center gap-2"
+            variant="secondary"
           >
             <Copy size={16} /> Skopiuj poprzednie
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Ready To Assign Card */}
-      <div className="bg-card border border-border rounded-2xl shadow-sm py-5 px-8 text-center relative overflow-hidden flex flex-col items-center justify-center">
+      <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm py-5 px-8 text-center relative overflow-hidden flex flex-col items-center justify-center">
         <div className="relative z-10">
           <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center justify-center gap-2">
             Do Rozdysponowania 
@@ -164,7 +165,7 @@ export default function Budgets() {
       </div>
 
       {/* Budgets Table */}
-      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden relative flex flex-col" style={{ maxHeight: 'calc(100vh - 340px)' }}>
+      <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm overflow-hidden relative flex flex-col" style={{ maxHeight: 'calc(100vh - 340px)' }}>
         {isLoading && (
           <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex items-center justify-center">
             <span className="text-muted-foreground animate-pulse font-medium">Przeliczanie budżetów...</span>

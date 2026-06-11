@@ -106,39 +106,44 @@ pub fn process_due_recurrings(conn: &mut Connection) -> Result<i32> {
     for recurring in due_recurrings {
         use chrono::Datelike;
         
-        let desc = format!("{} (Autopłatność)", recurring.name);
+        let mut current_next_date = recurring.next_date.clone();
         
-        tx.execute(
-            "INSERT INTO transactions (account_id, category_id, amount, type, description, date) VALUES (?1, ?2, ?3, 'expense', ?4, ?5)",
-            params![recurring.account_id, recurring.category_id, recurring.amount, desc, recurring.next_date],
-        )?;
-
-        if let Some(acc_id) = recurring.account_id {
-            tx.execute(
-                "UPDATE accounts SET balance = balance - ?1 WHERE id = ?2",
-                params![recurring.amount, acc_id],
-            )?;
-        }
-
-        let next_date_str = recurring.next_date.as_str();
-        let mut new_date_str = next_date_str.to_string();
-        if let Ok(parsed_date) = chrono::NaiveDate::parse_from_str(next_date_str, "%Y-%m-%d") {
-            let next_month = if parsed_date.month() == 12 {
-                chrono::NaiveDate::from_ymd_opt(parsed_date.year() + 1, 1, recurring.day_of_month.unwrap_or(parsed_date.day() as i32) as u32)
-            } else {
-                chrono::NaiveDate::from_ymd_opt(parsed_date.year(), parsed_date.month() + 1, recurring.day_of_month.unwrap_or(parsed_date.day() as i32) as u32)
-            };
+        while current_next_date <= today {
+            let desc = format!("{} (Autopłatność)", recurring.name);
             
-            let valid_date = next_month.unwrap_or_else(|| chrono::NaiveDate::from_ymd_opt(
-                if parsed_date.month() == 12 { parsed_date.year() + 1 } else { parsed_date.year() },
-                if parsed_date.month() == 12 { 1 } else { parsed_date.month() + 1 },
-                28
-            ).unwrap());
-            new_date_str = valid_date.format("%Y-%m-%d").to_string();
+            tx.execute(
+                "INSERT INTO transactions (account_id, category_id, amount, type, description, date) VALUES (?1, ?2, ?3, 'expense', ?4, ?5)",
+                params![recurring.account_id, recurring.category_id, recurring.amount, desc, current_next_date],
+            )?;
+
+            if let Some(acc_id) = recurring.account_id {
+                tx.execute(
+                    "UPDATE accounts SET balance = balance - ?1 WHERE id = ?2",
+                    params![recurring.amount, acc_id],
+                )?;
+            }
+
+            if let Ok(parsed_date) = chrono::NaiveDate::parse_from_str(&current_next_date, "%Y-%m-%d") {
+                let next_month = if parsed_date.month() == 12 {
+                    chrono::NaiveDate::from_ymd_opt(parsed_date.year() + 1, 1, recurring.day_of_month.unwrap_or(parsed_date.day() as i32) as u32)
+                } else {
+                    chrono::NaiveDate::from_ymd_opt(parsed_date.year(), parsed_date.month() + 1, recurring.day_of_month.unwrap_or(parsed_date.day() as i32) as u32)
+                };
+                
+                let valid_date = next_month.unwrap_or_else(|| chrono::NaiveDate::from_ymd_opt(
+                    if parsed_date.month() == 12 { parsed_date.year() + 1 } else { parsed_date.year() },
+                    if parsed_date.month() == 12 { 1 } else { parsed_date.month() + 1 },
+                    28
+                ).unwrap());
+                current_next_date = valid_date.format("%Y-%m-%d").to_string();
+            } else {
+                break;
+            }
+            
+            processed_count += 1;
         }
         
-        tx.execute("UPDATE recurring SET next_date = ?1 WHERE id = ?2", params![new_date_str, recurring.id])?;
-        processed_count += 1;
+        tx.execute("UPDATE recurring SET next_date = ?1 WHERE id = ?2", params![current_next_date, recurring.id])?;
     }
 
     tx.commit()?;
