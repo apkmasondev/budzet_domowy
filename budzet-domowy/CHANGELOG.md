@@ -2,6 +2,11 @@
 
 Wszystkie znaczące zmiany w tym projekcie będą dokumentowane w tym pliku.
 
+## [2.0.1] - 2026-06-11
+
+- **Poprawka wskaźnika "Do Rozdysponowania" (Ready to Assign)**: Naprawiono regresję w silniku ZBB w Rust, która powodowała wliczanie ujemnych sald kopert do sumy dostępnych środków, przez co przekroczenia budżetu sztucznie powiększały saldo RTA. Obecnie sumowane są wyłącznie dodatnie salda.
+- **Poprawka alertów przekroczenia budżetu (Dashboard)**: Zintegrowano powiadomienia o przekroczonych kategoriach na Dashboardzie bezpośrednio z obliczeniami silnika ZBB. Zapobiega to fałszywym ostrzeżeniom (np. gdy kategoria Jedzenie miała zrealizowane wydatki przekraczające limit bieżącego miesiąca, ale posiadała wystarczające środki przeniesione z poprzedniego miesiąca).
+
 ## [2.0.0]
 
 - **Interaktywna Analityka**: Wykres kołowy wydatków na Dashboardzie jest teraz w pełni interaktywny. Kliknięcie w segment wybranej kategorii przenosi bezpośrednio do przefiltrowanej historii transakcji dla tej właśnie kategorii.

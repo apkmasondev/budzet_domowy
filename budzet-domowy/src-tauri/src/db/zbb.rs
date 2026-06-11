@@ -140,7 +140,9 @@ pub fn get_ready_to_assign(conn: &Connection) -> Result<f64> {
     let mut sum_available = 0.0;
     if let Some(latest_state) = states.get(&max_month) {
         for state in latest_state.values() {
-            sum_available += state.available; // includes negative amounts!
+            if state.available > 0.0 {
+                sum_available += state.available;
+            }
         }
     }
 

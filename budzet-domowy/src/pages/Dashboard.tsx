@@ -2,7 +2,7 @@ import { Wallet, PieChart as PieChartIcon, TrendingDown, TrendingUp, History, Re
 import { useFinanceStore } from "../store/useFinanceStore";
 import SpendingPieChart from "../components/charts/SpendingPieChart";
 import MonthlyCashFlowChart from "../components/charts/MonthlyCashFlowChart";
-import { useAccounts, useCategories, useAllTransactions, useBudgets, useRecurrings } from "../lib/queries";
+import { useAccounts, useCategories, useAllTransactions, useRecurrings, useBudgetStates } from "../lib/queries";
 import { useReadyToAssign } from "../hooks/useReadyToAssign";
 import { useNavigate } from "react-router-dom";
 
@@ -18,7 +18,7 @@ export default function Dashboard() {
 
   const { data: accounts = [], isLoading: isAccountsLoading } = useAccounts();
   const { data: transactions = [], isLoading: isTransactionsLoading } = useAllTransactions();
-  const { data: budgets = [] } = useBudgets(currentMonth);
+  const { data: budgetStatesArray = [] } = useBudgetStates(currentMonth);
   const { data: categories = [] } = useCategories();
   const { data: recurrings = [] } = useRecurrings();
   const readyToAssign = useReadyToAssign();
@@ -42,15 +42,12 @@ export default function Dashboard() {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5);
 
-  const overbudgetAlerts = budgets.filter(b => {
-    const spent = transactions
-      .filter(t => t.category_id === b.category_id && t.date.startsWith(currentMonth))
-      .reduce((sum, t) => sum + t.amount, 0);
-    return b.amount > 0 && spent > b.amount;
-  }).map(b => {
-    const cat = categories.find(c => c.id === b.category_id);
-    return cat ? cat.name : "Nieznana";
-  });
+  const overbudgetAlerts = budgetStatesArray
+    .filter(state => state.available < -0.01)
+    .map(state => {
+      const cat = categories.find(c => c.id === state.category_id);
+      return cat ? cat.name : "Nieznana";
+    });
 
   const handlePrint = () => {
     window.print();
