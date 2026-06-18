@@ -2,6 +2,11 @@
 
 Wszystkie znaczące zmiany w projekcie strony internetowej (Landing Page) będą dokumentowane w tym pliku.
 
+## [1.2.0] - 2026-06-18
+
+### Changed
+- **Interaktywność Nagłówka i Stopki**: Zmieniono logo i nazwę aplikacji w nagłówku strony oraz w stopce na interaktywne przyciski, które po kliknięciu płynnie przewijają stronę na samą górę.
+
 ## [1.1.0] - 2026-06-06
 
 ### Added

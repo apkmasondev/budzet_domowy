@@ -14,10 +14,13 @@ function App() {
       {/* Navbar / Header */}
       <header className="fixed top-0 w-full z-50 border-b border-white/5 bg-background/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3 text-xl font-bold tracking-tight">
+          <button 
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="flex items-center gap-3 text-xl font-bold tracking-tight cursor-pointer hover:opacity-80 transition-opacity select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-lg"
+          >
             <img src="/budzet_domowy/app-icon.svg" alt="Logo" className="w-8 h-8 drop-shadow-md" />
             Domowy Budżet
-          </div>
+          </button>
           
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-text-muted">
