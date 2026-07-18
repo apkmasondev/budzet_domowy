@@ -27,7 +27,7 @@ export default function CTA() {
             </a>
             
             <a 
-              href="mailto:apkmasondev@gmail.com?subject=Zgłoszenie%20błędu%20-%20Domowy%20Budżet" 
+              href="mailto:apkmason.dev@gmail.com?subject=Zgłoszenie%20błędu%20-%20Domowy%20Budżet" 
               className="flex items-center gap-2 bg-surface hover:bg-surface-hover border border-white/10 text-white px-8 py-4 rounded-full font-semibold transition-all hover:scale-105 active:scale-95 w-full sm:w-auto justify-center"
             >
               <Terminal size={20} />

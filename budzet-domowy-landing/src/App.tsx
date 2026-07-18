@@ -26,7 +26,7 @@ function App() {
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-text-muted">
             <a href="#gallery" className="hover:text-white transition-colors">Galeria</a>
             <a href="#features" className="hover:text-white transition-colors">Funkcje</a>
-            <a href="mailto:apkmasondev@gmail.com?subject=Zgłoszenie%20błędu%20-%20Domowy%20Budżet" className="hover:text-white transition-colors">Zgłoś Błąd</a>
+            <a href="mailto:apkmason.dev@gmail.com?subject=Zgłoszenie%20błędu%20-%20Domowy%20Budżet" className="hover:text-white transition-colors">Zgłoś Błąd</a>
             <a 
               href="https://github.com/apkmasondev/budzet_domowy/releases/latest" 
               target="_blank" 
@@ -51,7 +51,7 @@ function App() {
           <div className="md:hidden border-t border-white/5 bg-background/95 backdrop-blur-xl px-4 py-4 flex flex-col gap-4">
             <a href="#gallery" onClick={() => setIsMenuOpen(false)} className="text-text-muted hover:text-white font-medium">Galeria</a>
             <a href="#features" onClick={() => setIsMenuOpen(false)} className="text-text-muted hover:text-white font-medium">Funkcje</a>
-            <a href="mailto:apkmasondev@gmail.com?subject=Zgłoszenie%20błędu%20-%20Domowy%20Budżet" onClick={() => setIsMenuOpen(false)} className="text-text-muted hover:text-white font-medium">Zgłoś Błąd</a>
+            <a href="mailto:apkmason.dev@gmail.com?subject=Zgłoszenie%20błędu%20-%20Domowy%20Budżet" onClick={() => setIsMenuOpen(false)} className="text-text-muted hover:text-white font-medium">Zgłoś Błąd</a>
             <a 
               href="https://github.com/apkmasondev/budzet_domowy/releases/latest" 
               target="_blank" 
