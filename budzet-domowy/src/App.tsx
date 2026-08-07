@@ -19,7 +19,7 @@ import { useEffect } from "react";
 
 export default function App() {
   const { checkAuthStatus, hasPin, isUnlocked, setTransactionModalOpen } = useFinanceStore();
-  const { data: accounts = [] } = useAccounts();
+  const { data: accounts = [], isPending: areAccountsLoading } = useAccounts();
 
   useEffect(() => {
     checkAuthStatus();
@@ -91,7 +91,22 @@ export default function App() {
           <div className="absolute top-1/2 -left-20 w-72 h-72 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none print:hidden" />
           
           <Routes>
-            <Route path="/" element={accounts.length === 0 ? <Onboarding /> : <Dashboard />} />
+            {/* Dopóki lista kont się ładuje, `accounts` jest pustą tablicą — bez tego
+                warunku ekran powitalny mrugał na starcie u każdego istniejącego użytkownika. */}
+            <Route
+              path="/"
+              element={
+                areAccountsLoading ? (
+                  <div className="flex justify-center p-8">
+                    <p className="text-muted-foreground animate-pulse">Ładowanie kokpitu...</p>
+                  </div>
+                ) : accounts.length === 0 ? (
+                  <Onboarding />
+                ) : (
+                  <Dashboard />
+                )
+              }
+            />
             <Route path="/accounts" element={<Accounts />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/budgets" element={<Budgets />} />

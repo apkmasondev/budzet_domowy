@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useFinanceStore } from "../store/useFinanceStore";
 import { useDialogStore } from "../store/useDialogStore";
 import { Plus, Wallet, Trash2, Banknote, CreditCard, PiggyBank, Pencil } from "lucide-react";
-import { useAccounts, useAddAccount, useDeleteAccount, useUpdateAccount, useCategories } from "../lib/queries";
+import { useAccounts, useAddAccount, useDeleteAccount, useUpdateAccount, useCategories, useAccountTransactions } from "../lib/queries";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
-import { api } from "../lib/api";
+import type { Account } from "../types";
 import { Button } from "../components/ui/Button";
 import { Modal } from "../components/ui/Modal";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -25,28 +25,17 @@ export default function Accounts() {
   const [name, setName] = useState("");
   const [balance, setBalance] = useState("0");
   const [type, setType] = useState("bank");
-  const [quickViewAccount, setQuickViewAccount] = useState<any>(null);
-  const [quickViewTransactions, setQuickViewTransactions] = useState<any[]>([]);
+  const [quickViewAccount, setQuickViewAccount] = useState<Account | null>(null);
 
-  useEffect(() => {
-    if (quickViewAccount) {
-      api.getTransactions(10, 0, undefined, undefined, undefined, "date_desc", quickViewAccount.id)
-        .then(setQuickViewTransactions)
-        .catch(console.error);
-    } else {
-      setQuickViewTransactions([]);
-    }
-  }, [quickViewAccount]);
-
-  useEffect(() => {
-    if (quickViewAccount) {
-      api.getTransactions(10, 0, undefined, undefined, undefined, "date_desc", quickViewAccount.id)
-        .then(setQuickViewTransactions)
-        .catch(console.error);
-    } else {
-      setQuickViewTransactions([]);
-    }
-  }, [quickViewAccount]);
+  // Podgląd konta jedzie przez React Query zamiast ręcznego fetcha w useEffect:
+  // sam się unieważnia po dodaniu/usunięciu transakcji i nie da się doprowadzić
+  // do wyścigu, w którym odpowiedź dla poprzedniego konta nadpisuje aktualne.
+  // (Wcześniej ten sam efekt był w pliku zduplikowany i strzelał dwa razy.)
+  const { data: allQuickViewTransactions = [] } = useAccountTransactions(quickViewAccount?.id ?? null);
+  const quickViewTransactions = useMemo(
+    () => allQuickViewTransactions.slice(0, 10),
+    [allQuickViewTransactions]
+  );
 
   useEffect(() => {
     if (location.search.includes("new=1")) {
@@ -63,7 +52,7 @@ export default function Accounts() {
     setIsModalOpen(true);
   };
 
-  const openEditModal = (acc: any) => {
+  const openEditModal = (acc: Account) => {
     setEditingId(acc.id);
     setName(acc.name);
     setBalance(acc.balance.toString());
@@ -74,6 +63,18 @@ export default function Accounts() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Saldo może być ujemne (debet), ale musi być liczbą — przy pustym/niepoprawnym
+    // polu parseFloat zwracał NaN i backend zapisywał uszkodzoną wartość.
+    if (!Number.isFinite(parseFloat(balance))) {
+      showAlert("Nieprawidłowe saldo", "Podaj saldo konta jako liczbę.");
+      return;
+    }
+    if (!name.trim()) {
+      showAlert("Brak nazwy", "Nazwa konta nie może być pusta.");
+      return;
+    }
+
     if (editingId) {
       const originalAccount = accounts.find(a => a.id === editingId);
       if (originalAccount && originalAccount.balance !== parseFloat(balance)) {
@@ -182,7 +183,8 @@ export default function Accounts() {
         {accounts.map(acc => {
           const style = getAccountStyle(acc.type);
           return (
-          <div key={acc.id} onClick={() => setQuickViewAccount(acc)} className={`p-6 bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm flex flex-col gap-4 relative overflow-hidden group transition-all duration-300 hover:shadow-md ring-1 ring-transparent cursor-pointer ${style.ring}`}>
+          <div key={acc.id} onClick={() => setQuickViewAccount(acc)} role="button" tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') setQuickViewAccount(acc); }} className={`p-6 bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm flex flex-col gap-4 relative overflow-hidden group transition-all duration-300 hover:shadow-md ring-1 ring-transparent cursor-pointer ${style.ring}`}>
             <div className="absolute -right-8 -top-8 opacity-10 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500">
               {style.watermark}
             </div>
@@ -265,23 +267,33 @@ export default function Accounts() {
           ) : (
             quickViewTransactions
               .map(tx => {
-                const isExpense = tx.type === "expense";
+                // Lista zawiera też przelewy przychodzące (transfer_to_id = to konto),
+                // więc kierunek trzeba wyliczyć względem oglądanego konta, a nie
+                // wyłącznie z typu transakcji.
+                const isOutgoing =
+                  tx.type === "expense" ||
+                  (tx.type === "transfer" && tx.account_id === quickViewAccount?.id);
                 const cat = categories.find(c => c.id === tx.category_id);
                 return (
                   <div key={tx.id} className="flex items-center justify-between p-3 hover:bg-muted/50 rounded-xl transition-colors border border-border/50">
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isExpense ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
-                        {isExpense ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isOutgoing ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                        {isOutgoing ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
                       </div>
                       <div>
                         <p className="font-medium text-foreground text-sm mb-0.5">{tx.description || cat?.name || "Transakcja"}</p>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">{tx.date}</span>
+                          {tx.type === "transfer" && (
+                            <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 bg-blue-500/10 text-blue-500 rounded-md">
+                              Przelew
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
-                    <div className={`font-bold text-sm ${isExpense ? 'text-red-500' : 'text-emerald-500'}`}>
-                      {isExpense ? "-" : "+"}{privacyMode ? '***' : tx.amount.toFixed(2)} PLN
+                    <div className={`font-bold text-sm ${isOutgoing ? 'text-red-500' : 'text-emerald-500'}`}>
+                      {isOutgoing ? "-" : "+"}{privacyMode ? '***' : tx.amount.toFixed(2)} PLN
                     </div>
                   </div>
                 );

@@ -55,16 +55,41 @@ export interface Goal {
   created_at: string;
 }
 
+/** Musi pozostać zsynchronizowane z `FREQUENCIES` w `src-tauri/src/db/recurring.rs`. */
+export const RECURRING_FREQUENCIES = ["weekly", "monthly", "quarterly", "yearly"] as const;
+export type RecurringFrequency = (typeof RECURRING_FREQUENCIES)[number];
+
+export const FREQUENCY_LABELS: Record<RecurringFrequency, string> = {
+  weekly: "Co tydzień",
+  monthly: "Co miesiąc",
+  quarterly: "Co kwartał",
+  yearly: "Co rok",
+};
+
 export interface RecurringTransaction {
   id: number;
   name: string;
   amount: number;
   category_id?: number;
   account_id?: number;
-  frequency: string;
+  frequency: RecurringFrequency;
   next_date: string;
-  day_of_month?: number;
+  /** Nullable w bazie — zawsze sprawdzaj przed wywołaniem metod na tej wartości. */
+  day_of_month?: number | null;
   active: number;
+}
+
+/** Wyliczony stan kategorii w budżecie ZBB dla danego miesiąca (liczony w Rust). */
+export interface BudgetState {
+  category_id: number;
+  /** Nadwyżka przeniesiona z poprzedniego miesiąca (zawsze >= 0). */
+  rollover: number;
+  assigned: number;
+  /** Wydatki minus zwroty. Dodatnia wartość = pieniądze wyszły. */
+  activity: number;
+  available: number;
+  /** Debet z poprzedniego miesiąca (zawsze <= 0), pokryty z "Do Rozdysponowania". */
+  overspent: number;
 }
 
 export interface RecurringSuggestion {
@@ -73,13 +98,4 @@ export interface RecurringSuggestion {
   category_id?: number;
   account_id: number;
   last_date: string;
-}
-
-export interface BackupData {
-  accounts: Account[];
-  categories: Category[];
-  transactions: Transaction[];
-  budgets: Budget[];
-  goals: Goal[];
-  recurrings: RecurringTransaction[];
 }

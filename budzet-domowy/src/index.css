@@ -1,7 +1,9 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", "Outfit", sans-serif;
+  /* Inter/Outfit użyte, jeśli są zainstalowane w systemie; dalej pełny stos
+     systemowy, bo aplikacja nie pobiera fontów z sieci. */
+  --font-sans: "Inter", "Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --color-background: var(--bg-background);
   --color-foreground: var(--bg-foreground);
   --color-primary: var(--bg-primary);
@@ -16,7 +18,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 body {
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-sans);
 }
 
 :root {

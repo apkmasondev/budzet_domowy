@@ -46,8 +46,9 @@ fn bulk_insert_transactions(state: State<'_, Mutex<Connection>>, payloads: Vec<d
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // Parametry komendy Tauri muszą być płaskie i nazwane.
 fn get_transactions(
-    state: State<'_, Mutex<Connection>>, 
+    state: State<'_, Mutex<Connection>>,
     limit: u32, 
     offset: u32,
     search: Option<String>,
@@ -76,17 +77,6 @@ fn get_dashboard_stats(state: State<'_, Mutex<Connection>>, month: String) -> Re
 fn get_transaction_by_id(state: State<'_, Mutex<Connection>>, id: i64) -> Result<db::transactions::Transaction, String> {
     let conn = state.lock().map_err(|e| e.to_string())?;
     db::transactions::get_transaction_by_id(&conn, id).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn get_transactions_count(
-    state: State<'_, Mutex<Connection>>,
-    search: Option<String>,
-    month: Option<String>,
-    tx_type: Option<String>
-) -> Result<u32, String> {
-    let conn = state.lock().map_err(|e| e.to_string())?;
-    db::transactions::get_transactions_count(&conn, search, month, tx_type).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -120,18 +110,8 @@ fn get_tags(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::tags::Tag>, S
 }
 
 // Budgets
-#[tauri::command]
-fn get_budgets(state: State<'_, Mutex<Connection>>, month: &str) -> Result<Vec<db::budgets::Budget>, String> {
-    let conn = state.lock().map_err(|e| e.to_string())?;
-    db::budgets::get_budgets(&conn, month).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn get_all_budgets(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::budgets::Budget>, String> {
-    let conn = state.lock().map_err(|e| e.to_string())?;
-    db::budgets::get_all_budgets(&conn).map_err(|e| e.to_string())
-}
-
+// Surowe listy budżetów (`get_budgets` / `get_all_budgets`) zostały usunięte —
+// UI korzysta wyłącznie z `get_budget_states`, które zwraca policzone stany ZBB.
 #[tauri::command]
 fn upsert_budget(state: State<'_, Mutex<Connection>>, payload: db::budgets::UpsertBudgetPayload) -> Result<(), String> {
     let conn = state.lock().map_err(|e| e.to_string())?;
@@ -140,8 +120,8 @@ fn upsert_budget(state: State<'_, Mutex<Connection>>, payload: db::budgets::Upse
 
 #[tauri::command]
 fn copy_budgets_to_month(state: State<'_, Mutex<Connection>>, from_month: &str, to_month: &str) -> Result<(), String> {
-    let conn = state.lock().map_err(|e| e.to_string())?;
-    db::budgets::copy_budgets_to_month(&conn, from_month, to_month).map_err(|e| e.to_string())
+    let mut conn = state.lock().map_err(|e| e.to_string())?;
+    db::budgets::copy_budgets_to_month(&mut conn, from_month, to_month).map_err(|e| e.to_string())
 }
 
 // Goals
@@ -159,8 +139,8 @@ fn create_goal(state: State<'_, Mutex<Connection>>, payload: db::goals::CreateGo
 
 #[tauri::command]
 fn delete_goal(state: State<'_, Mutex<Connection>>, id: i64) -> Result<(), String> {
-    let conn = state.lock().map_err(|e| e.to_string())?;
-    db::goals::delete_goal(&conn, id).map_err(|e| e.to_string())
+    let mut conn = state.lock().map_err(|e| e.to_string())?;
+    db::goals::delete_goal(&mut conn, id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -215,17 +195,7 @@ fn detect_suggestions(state: State<'_, Mutex<Connection>>) -> Result<Vec<db::rec
 #[tauri::command]
 fn ignore_subscription_suggestion(state: State<'_, Mutex<Connection>>, description: String) -> Result<(), String> {
     let conn = state.lock().map_err(|e| e.to_string())?;
-    let current_ignored = db::settings::get_setting(&conn, "ignored_subscriptions")
-        .map_err(|e| e.to_string())?
-        .unwrap_or_default();
-    
-    let new_ignored = if current_ignored.is_empty() {
-        description
-    } else {
-        format!("{},{}", current_ignored, description)
-    };
-    
-    db::settings::set_setting(&conn, "ignored_subscriptions", &new_ignored).map_err(|e| e.to_string())
+    db::recurring::ignore_subscription(&conn, &description).map_err(|e| e.to_string())
 }
 
 // Backup
@@ -245,25 +215,88 @@ fn export_db(app_handle: tauri::AppHandle, state: State<'_, Mutex<Connection>>, 
 fn import_db(app_handle: tauri::AppHandle, state: State<'_, Mutex<Connection>>, source_path: String) -> Result<(), String> {
     let app_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
     let db_path = app_dir.join("budzet.db");
-    
+
+    // Zanim cokolwiek skasujemy: sprawdzamy, czy wskazany plik to w ogóle nasza baza.
+    // Wcześniej wybranie przypadkowego pliku .db kasowało dane użytkownika bezpowrotnie.
+    validate_backup_file(&source_path)?;
+
     let mut conn = state.lock().map_err(|e| e.to_string())?;
+
+    // Kopia bezpieczeństwa obecnej bazy — punkt powrotu, gdyby import się wywalił.
+    let rollback_path = app_dir.join("budzet.db.rollback");
+    conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);").map_err(|e| e.to_string())?;
+    std::fs::copy(&db_path, &rollback_path).map_err(|e| e.to_string())?;
+
     // Odłączamy się od starego pliku, przechodząc na chwilę do pamięci RAM, żeby odblokować uchwyt (lock) na pliku!
     *conn = Connection::open_in_memory().map_err(|e| e.to_string())?;
-    
+
     // Usypiamy wątek na bardzo krótki czas, by system (np. Windows Defender) puścił blokadę
     std::thread::sleep(std::time::Duration::from_millis(150));
-    
+
     // Usuwamy pliki tymczasowe SQLite (wal/shm), by nie skorumpować nadpisywanej bazy!
     let _ = std::fs::remove_file(&db_path);
     let _ = std::fs::remove_file(app_dir.join("budzet.db-wal"));
     let _ = std::fs::remove_file(app_dir.join("budzet.db-shm"));
-    
-    // Kopiujemy stary plik z backupem
-    std::fs::copy(&source_path, &db_path).map_err(|e| e.to_string())?;
-    
+
+    let restore = |conn: &mut Connection| {
+        let _ = std::fs::copy(&rollback_path, &db_path);
+        if let Ok(restored) = Connection::open(&db_path) {
+            let _ = db::configure_connection(&restored);
+            *conn = restored;
+        }
+    };
+
+    // Kopiujemy plik z backupem
+    if let Err(e) = std::fs::copy(&source_path, &db_path) {
+        restore(&mut conn);
+        return Err(format!("Nie udało się skopiować pliku kopii zapasowej: {}", e));
+    }
+
     // Otwieramy bazę z powrotem na świeżym, odzyskanym pliku!
-    *conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    
+    let mut imported = match Connection::open(&db_path) {
+        Ok(c) => c,
+        Err(e) => {
+            restore(&mut conn);
+            return Err(format!("Nie udało się otworzyć wgranej bazy: {}", e));
+        }
+    };
+
+    // Kopia może pochodzić ze starszej wersji aplikacji — bez migracji schemat
+    // pozostałby przestarzały i aplikacja wywalałaby się na brakujących kolumnach.
+    if let Err(e) = db::configure_connection(&imported)
+        .map_err(|e| e.to_string())
+        .and_then(|_| db::migrations::run_migrations(&mut imported).map_err(|e| e.to_string()))
+    {
+        drop(imported);
+        restore(&mut conn);
+        return Err(format!("Wgrany plik nie jest poprawną kopią zapasową: {}", e));
+    }
+
+    *conn = imported;
+    let _ = std::fs::remove_file(&rollback_path);
+
+    Ok(())
+}
+
+/// Minimalna weryfikacja, że plik jest bazą SQLite zawierającą tabele tej aplikacji.
+fn validate_backup_file(source_path: &str) -> Result<(), String> {
+    let probe = Connection::open_with_flags(
+        source_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .map_err(|_| "Wskazany plik nie jest bazą danych SQLite.".to_string())?;
+
+    let has_tables: i64 = probe
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('accounts', 'transactions', 'categories')",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|_| "Wskazany plik nie jest bazą danych SQLite.".to_string())?;
+
+    if has_tables < 3 {
+        return Err("Wskazany plik nie jest kopią zapasową Domowego Budżetu.".to_string());
+    }
     Ok(())
 }
 
@@ -283,22 +316,7 @@ fn set_setting(state: State<'_, Mutex<Connection>>, key: &str, value: &str) -> R
 #[tauri::command]
 fn factory_reset(state: State<'_, Mutex<Connection>>) -> Result<(), String> {
     let mut conn = state.lock().map_err(|e| e.to_string())?;
-    let tx = conn.transaction().map_err(|e| e.to_string())?;
-    tx.execute_batch(
-        "DELETE FROM transaction_tags;
-         DELETE FROM tags;
-         DELETE FROM transactions;
-         DELETE FROM recurring;
-         DELETE FROM budgets;
-         DELETE FROM goals;
-         DELETE FROM accounts;
-         DELETE FROM app_settings;
-         DELETE FROM categories;"
-    ).map_err(|e| e.to_string())?;
-    
-    db::categories::seed_default_categories(&tx).map_err(|e| e.to_string())?;
-    tx.commit().map_err(|e| e.to_string())?;
-    Ok(())
+    db::factory_reset(&mut conn).map_err(|e| e.to_string())
 }
 
 // Categories Management
@@ -332,7 +350,6 @@ pub fn run() {
             
             Ok(())
         })
-        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
@@ -344,13 +361,10 @@ pub fn run() {
             get_transaction_months,
             get_dashboard_stats,
             get_transaction_by_id,
-            get_transactions_count,
             get_budget_states,
             get_ready_to_assign,
             create_transaction,
             get_tags,
-            get_budgets,
-            get_all_budgets,
             upsert_budget,
             copy_budgets_to_month,
             get_goals,

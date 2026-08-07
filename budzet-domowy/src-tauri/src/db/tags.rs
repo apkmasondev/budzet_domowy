@@ -47,32 +47,13 @@ pub fn add_tag_to_transaction(conn: &Connection, transaction_id: i64, tag_id: i6
     Ok(())
 }
 
-pub fn get_tags_for_transaction(conn: &Connection, transaction_id: i64) -> Result<Vec<String>> {
-    let mut stmt = conn.prepare(
-        "SELECT t.name FROM tags t
-         JOIN transaction_tags tt ON t.id = tt.tag_id
-         WHERE tt.transaction_id = ?1
-         ORDER BY t.name"
+/// Usuwa tagi, do których nie odwołuje się już żadna transakcja.
+/// Bez tego lista podpowiedzi w modalu transakcji puchła o nazwy nieużywane
+/// od dawna (tagi nigdy nie były sprzątane po edycji ani usunięciu wpisu).
+pub fn prune_orphan_tags(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM transaction_tags)",
+        [],
     )?;
-    
-    let tags_iter = stmt.query_map(params![transaction_id], |row| row.get::<_, String>(0))?;
-    
-    let mut tags = Vec::new();
-    for tag in tags_iter {
-        tags.push(tag?);
-    }
-    Ok(tags)
-}
-
-pub fn set_transaction_tags(conn: &Connection, transaction_id: i64, tags: Vec<String>) -> Result<()> {
-    // Najpierw usuwamy stare tagi
-    conn.execute("DELETE FROM transaction_tags WHERE transaction_id = ?1", params![transaction_id])?;
-
-    // Dodajemy nowe tagi
-    for tag_name in tags {
-        let tag_id = create_tag(conn, &tag_name, None)?;
-        add_tag_to_transaction(conn, transaction_id, tag_id)?;
-    }
-
     Ok(())
 }

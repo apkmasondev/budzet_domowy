@@ -22,7 +22,20 @@ pub struct CreateGoalPayload {
     pub color: Option<String>,
 }
 
+fn validate_amount(value: f64, label: &str, allow_zero: bool) -> Result<()> {
+    let invalid = !value.is_finite() || (if allow_zero { value < 0.0 } else { value <= 0.0 });
+    if invalid {
+        return Err(rusqlite::Error::InvalidParameterName(format!(
+            "{} musi być liczbą {} od zera",
+            label,
+            if allow_zero { "nieujemną" } else { "większą" }
+        )));
+    }
+    Ok(())
+}
+
 pub fn create_goal(conn: &Connection, payload: CreateGoalPayload) -> Result<i64> {
+    validate_amount(payload.target_amount, "Kwota docelowa", false)?;
     conn.execute(
         "INSERT INTO goals (name, target_amount, current_amount, deadline, icon, color) VALUES (?1, ?2, 0, ?3, ?4, ?5)",
         params![payload.name, payload.target_amount, payload.deadline, payload.icon, payload.color],
@@ -41,6 +54,8 @@ pub struct UpdateGoalPayload {
 }
 
 pub fn update_goal(conn: &Connection, id: i64, payload: UpdateGoalPayload) -> Result<()> {
+    validate_amount(payload.target_amount, "Kwota docelowa", false)?;
+    validate_amount(payload.current_amount, "Kwota zgromadzona", true)?;
     conn.execute(
         "UPDATE goals SET name = ?1, target_amount = ?2, current_amount = ?3, deadline = ?4, icon = ?5, color = ?6 WHERE id = ?7",
         params![payload.name, payload.target_amount, payload.current_amount, payload.deadline, payload.icon, payload.color, id],
@@ -79,9 +94,11 @@ pub struct AddToGoalPayload {
 }
 
 pub fn add_to_goal(conn: &mut Connection, payload: AddToGoalPayload) -> Result<()> {
+    validate_amount(payload.amount, "Kwota wpłaty", false)?;
+
     let tx = conn.transaction()?;
 
-    let description = format!("Wpłata na cel oszczędnościowy");
+    let description = "Wpłata na cel oszczędnościowy";
     tx.execute(
         "INSERT INTO transactions (account_id, category_id, amount, type, description, date, transfer_to_id, goal_id)
          VALUES (?1, NULL, ?2, 'expense', ?3, ?4, NULL, ?5)",
@@ -102,7 +119,12 @@ pub fn add_to_goal(conn: &mut Connection, payload: AddToGoalPayload) -> Result<(
     Ok(())
 }
 
-pub fn delete_goal(conn: &Connection, id: i64) -> Result<()> {
-    conn.execute("DELETE FROM goals WHERE id = ?1", params![id])?;
+pub fn delete_goal(conn: &mut Connection, id: i64) -> Result<()> {
+    let tx = conn.transaction()?;
+    // Historia wpłat zostaje (pieniądze realnie wyszły z konta), ale musi stracić
+    // wskazanie na nieistniejący już cel — inaczej `goal_id` jest wiszącą referencją.
+    tx.execute("UPDATE transactions SET goal_id = NULL WHERE goal_id = ?1", params![id])?;
+    tx.execute("DELETE FROM goals WHERE id = ?1", params![id])?;
+    tx.commit()?;
     Ok(())
 }

@@ -44,13 +44,49 @@ pub struct UpdateTransactionPayload {
     pub tags: Option<Vec<String>>,
 }
 
+/// Wspólna walidacja dla tworzenia i edycji transakcji.
+/// Wcześniej rozjeżdżała się między `create`, `update` i `bulk_insert`.
+fn validate_transaction(
+    amount: f64,
+    type_: &str,
+    account_id: i64,
+    transfer_to_id: Option<i64>,
+) -> Result<()> {
+    if !amount.is_finite() || amount <= 0.0 {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "Kwota musi być liczbą większą od zera".to_string(),
+        ));
+    }
+    if type_ != "income" && type_ != "expense" && type_ != "transfer" {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "Nieprawidłowy typ transakcji".to_string(),
+        ));
+    }
+    if type_ == "transfer" {
+        match transfer_to_id {
+            None => {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Przelew wymaga wskazania konta docelowego".to_string(),
+                ))
+            }
+            Some(target) if target == account_id => {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Nie można wykonać przelewu na to samo konto".to_string(),
+                ))
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 pub fn create_transaction(conn: &mut Connection, payload: CreateTransactionPayload) -> Result<i64> {
-    if payload.amount <= 0.0 {
-        return Err(rusqlite::Error::InvalidParameterName("Kwota musi być większa od zera".to_string()));
-    }
-    if payload.type_ != "income" && payload.type_ != "expense" && payload.type_ != "transfer" {
-        return Err(rusqlite::Error::InvalidParameterName("Nieprawidłowy typ transakcji".to_string()));
-    }
+    validate_transaction(
+        payload.amount,
+        &payload.type_,
+        payload.account_id,
+        payload.transfer_to_id,
+    )?;
 
     let tx = conn.transaction()?;
 
@@ -98,8 +134,22 @@ pub fn create_transaction(conn: &mut Connection, payload: CreateTransactionPaylo
     Ok(last_id)
 }
 
+/// Tagi sklejane są przez GROUP_CONCAT separatorem US (0x1F), a nie przecinkiem —
+/// przecinek jest legalnym znakiem w nazwie tagu i rozbijał ją na dwa tagi.
+fn split_tags(joined: String) -> Vec<String> {
+    joined
+        .split('\u{1f}')
+        .filter(|t| !t.is_empty())
+        .map(|t| t.to_string())
+        .collect()
+}
+
+// Lista argumentów odzwierciedla 1:1 parametry komendy Tauri, która musi mieć płaskie,
+// nazwane pola (tak działa deserializacja IPC). Opakowanie ich w strukturę wymusiłoby
+// duplikowanie tych samych pól po obu stronach granicy — świadomie zostawiamy płasko.
+#[allow(clippy::too_many_arguments)]
 pub fn get_transactions(
-    conn: &Connection, 
+    conn: &Connection,
     limit: u32, 
     offset: u32,
     search: Option<String>,
@@ -110,7 +160,7 @@ pub fn get_transactions(
 ) -> Result<Vec<Transaction>> {
     let mut query = "
         SELECT t.id, t.account_id, t.category_id, t.amount, t.type, t.description, t.date, t.transfer_to_id, t.created_at, t.updated_at,
-               GROUP_CONCAT(tg.name, ',') as tags_str
+               GROUP_CONCAT(tg.name, char(31)) as tags_str
         FROM transactions t
         LEFT JOIN transaction_tags tt ON t.id = tt.transaction_id
         LEFT JOIN tags tg ON tt.tag_id = tg.id
@@ -123,8 +173,8 @@ pub fn get_transactions(
     if let Some(s) = search {
         if !s.trim().is_empty() {
             let s_trim = s.trim();
-            if s_trim.starts_with('#') {
-                let tag_search = s_trim[1..].to_lowercase();
+            if let Some(tag) = s_trim.strip_prefix('#') {
+                let tag_search = tag.to_lowercase();
                 query.push_str(" AND EXISTS (SELECT 1 FROM transaction_tags tt2 JOIN tags tg2 ON tt2.tag_id = tg2.id WHERE tt2.transaction_id = t.id AND LOWER(tg2.name) LIKE ?) ");
                 args.push(Box::new(format!("%{}%", tag_search)));
             } else {
@@ -179,7 +229,7 @@ pub fn get_transactions(
     let iter = stmt.query_map(rusqlite::params_from_iter(params_refs), |row| {
         let id: i64 = row.get(0)?;
         let tags_str: Option<String> = row.get(10)?;
-        let tags = tags_str.map(|s| s.split(',').map(|tag| tag.to_string()).collect());
+        let tags = tags_str.map(split_tags);
 
         Ok(Transaction {
             id,
@@ -202,57 +252,6 @@ pub fn get_transactions(
     }
 
     Ok(transactions)
-}
-
-pub fn get_transactions_count(
-    conn: &Connection,
-    search: Option<String>,
-    month: Option<String>,
-    tx_type: Option<String>
-) -> Result<u32> {
-    let mut query = "
-        SELECT COUNT(DISTINCT t.id) FROM transactions t
-        LEFT JOIN categories c ON t.category_id = c.id
-        WHERE 1=1
-    ".to_string();
-
-    let mut args: Vec<Box<dyn rusqlite::ToSql>> = vec![];
-
-    if let Some(s) = search {
-        if !s.trim().is_empty() {
-            let s_trim = s.trim();
-            if s_trim.starts_with('#') {
-                let tag_search = s_trim[1..].to_lowercase();
-                query.push_str(" AND EXISTS (SELECT 1 FROM transaction_tags tt2 JOIN tags tg2 ON tt2.tag_id = tg2.id WHERE tt2.transaction_id = t.id AND LOWER(tg2.name) LIKE ?) ");
-                args.push(Box::new(format!("%{}%", tag_search)));
-            } else {
-                query.push_str(" AND (LOWER(t.description) LIKE ? OR LOWER(c.name) LIKE ? OR CAST(t.amount AS TEXT) LIKE ? OR EXISTS (SELECT 1 FROM transaction_tags tt2 JOIN tags tg2 ON tt2.tag_id = tg2.id WHERE tt2.transaction_id = t.id AND LOWER(tg2.name) LIKE ?)) ");
-                let search_pattern = format!("%{}%", s_trim.to_lowercase());
-                args.push(Box::new(search_pattern.clone()));
-                args.push(Box::new(search_pattern.clone()));
-                args.push(Box::new(search_pattern.clone()));
-                args.push(Box::new(search_pattern));
-            }
-        }
-    }
-
-    if let Some(m) = month {
-        if !m.is_empty() {
-            query.push_str(" AND t.date LIKE ? ");
-            args.push(Box::new(format!("{}%", m)));
-        }
-    }
-
-    if let Some(t) = tx_type {
-        if !t.is_empty() && t != "all" {
-            query.push_str(" AND t.type = ? ");
-            args.push(Box::new(t));
-        }
-    }
-
-    let mut stmt = conn.prepare(&query)?;
-    let params_refs: Vec<&dyn rusqlite::ToSql> = args.iter().map(|arg| arg.as_ref()).collect();
-    stmt.query_row(rusqlite::params_from_iter(params_refs), |row| row.get(0))
 }
 
 pub fn get_transaction_months(conn: &Connection) -> Result<Vec<String>> {
@@ -285,12 +284,13 @@ pub fn get_dashboard_stats(conn: &Connection, month: &str) -> Result<DashboardSt
     })?;
     
     for item in iter {
-        if let Ok((t, a)) = item {
-            if t == "expense" {
-                expenses += a;
-            } else if t == "income" {
-                incomes += a;
-            }
+        // Błąd odczytu wiersza musi wybić się na górę — wcześniej `if let Ok(..)`
+        // po cichu gubił wiersze i pokazywał zaniżone sumy na Dashboardzie.
+        let (t, a) = item?;
+        if t == "expense" {
+            expenses += a;
+        } else if t == "income" {
+            incomes += a;
         }
     }
     
@@ -327,19 +327,17 @@ pub fn bulk_insert_transactions(conn: &mut Connection, payloads: Vec<CreateTrans
         })?;
         
         for item in iter {
-            if let Ok(hash) = item {
-                existing_hashes.insert(hash);
-            }
+            existing_hashes.insert(item?);
         }
     }
 
     for payload in payloads {
-        if payload.amount <= 0.0 {
-            return Err(rusqlite::Error::InvalidParameterName("Kwota musi być większa od zera".to_string()));
-        }
-        if payload.type_ != "income" && payload.type_ != "expense" && payload.type_ != "transfer" {
-            return Err(rusqlite::Error::InvalidParameterName("Nieprawidłowy typ transakcji".to_string()));
-        }
+        validate_transaction(
+            payload.amount,
+            &payload.type_,
+            payload.account_id,
+            payload.transfer_to_id,
+        )?;
 
         let desc_str = payload.description.as_deref().unwrap_or("");
         let hash = format!("{}|{:.2}|{}|{}", payload.date, payload.amount, desc_str, payload.account_id);
@@ -423,23 +421,26 @@ pub fn delete_transaction(conn: &mut Connection, id: i64) -> Result<()> {
         }
     }
 
-    if let Some(gid) = goal_id {
+    // Wpłata na cel jest zawsze typu 'expense'. Zwracamy środki celowi tylko wtedy,
+    // gdy transakcja faktycznie je do niego wniosła.
+    if let (Some(gid), "expense") = (goal_id, type_.as_str()) {
         tx.execute("UPDATE goals SET current_amount = current_amount - ?1 WHERE id = ?2", params![amount, gid])?;
     }
     tx.execute("DELETE FROM transaction_tags WHERE transaction_id = ?1", params![id])?;
     tx.execute("DELETE FROM transactions WHERE id = ?1", params![id])?;
+    tags::prune_orphan_tags(&tx)?;
 
     tx.commit()?;
     Ok(())
 }
 
 pub fn update_transaction(conn: &mut Connection, id: i64, payload: UpdateTransactionPayload) -> Result<()> {
-    if payload.amount <= 0.0 {
-        return Err(rusqlite::Error::InvalidParameterName("Kwota musi być większa od zera".to_string()));
-    }
-    if payload.type_ != "income" && payload.type_ != "expense" && payload.type_ != "transfer" {
-        return Err(rusqlite::Error::InvalidParameterName("Nieprawidłowy typ transakcji".to_string()));
-    }
+    validate_transaction(
+        payload.amount,
+        &payload.type_,
+        payload.account_id,
+        payload.transfer_to_id,
+    )?;
 
     let tx = conn.transaction()?;
 
@@ -523,6 +524,7 @@ pub fn update_transaction(conn: &mut Connection, id: i64, payload: UpdateTransac
             }
         }
     }
+    tags::prune_orphan_tags(&tx)?;
 
     tx.commit()?;
     Ok(())
@@ -531,7 +533,7 @@ pub fn update_transaction(conn: &mut Connection, id: i64, payload: UpdateTransac
 pub fn get_transaction_by_id(conn: &Connection, id: i64) -> Result<Transaction> {
     let mut stmt = conn.prepare("
         SELECT t.id, t.account_id, t.category_id, t.amount, t.type, t.description, t.date, t.transfer_to_id, t.created_at, t.updated_at,
-               GROUP_CONCAT(tg.name, ',') as tags_str
+               GROUP_CONCAT(tg.name, char(31)) as tags_str
         FROM transactions t
         LEFT JOIN transaction_tags tt ON t.id = tt.transaction_id
         LEFT JOIN tags tg ON tt.tag_id = tg.id
@@ -541,7 +543,7 @@ pub fn get_transaction_by_id(conn: &Connection, id: i64) -> Result<Transaction> 
 
     let row = stmt.query_row(params![id], |row| {
         let tags_str: Option<String> = row.get(10)?;
-        let tags = tags_str.map(|s| s.split(',').map(|t| t.to_string()).collect());
+        let tags = tags_str.map(split_tags);
 
         Ok(Transaction {
             id: row.get(0)?,
@@ -559,4 +561,124 @@ pub fn get_transaction_by_id(conn: &Connection, id: i64) -> Result<Transaction> 
     })?;
 
     Ok(row)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    fn setup() -> Connection {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::run_migrations(&mut conn).unwrap();
+        crate::db::configure_connection(&conn).unwrap();
+        conn.execute(
+            "INSERT INTO accounts (id, name, type, currency, balance) VALUES (1, 'A', 'bank', 'PLN', 1000)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO accounts (id, name, type, currency, balance) VALUES (2, 'B', 'bank', 'PLN', 0)",
+            [],
+        )
+        .unwrap();
+        conn
+    }
+
+    fn payload(type_: &str, transfer_to: Option<i64>, amount: f64) -> CreateTransactionPayload {
+        CreateTransactionPayload {
+            account_id: 1,
+            category_id: None,
+            amount,
+            type_: type_.to_string(),
+            description: Some("Test".to_string()),
+            date: "2024-03-01".to_string(),
+            transfer_to_id: transfer_to,
+            tags: None,
+        }
+    }
+
+    #[test]
+    fn test_transfer_requires_target_account() {
+        let mut conn = setup();
+        assert!(create_transaction(&mut conn, payload("transfer", None, 100.0)).is_err());
+    }
+
+    #[test]
+    fn test_transfer_to_same_account_is_rejected() {
+        let mut conn = setup();
+        assert!(create_transaction(&mut conn, payload("transfer", Some(1), 100.0)).is_err());
+    }
+
+    #[test]
+    fn test_zero_and_negative_amounts_are_rejected() {
+        let mut conn = setup();
+        assert!(create_transaction(&mut conn, payload("expense", None, 0.0)).is_err());
+        assert!(create_transaction(&mut conn, payload("expense", None, -50.0)).is_err());
+        assert!(create_transaction(&mut conn, payload("expense", None, f64::NAN)).is_err());
+    }
+
+    #[test]
+    fn test_rejected_transaction_leaves_balance_untouched() {
+        let mut conn = setup();
+        let _ = create_transaction(&mut conn, payload("transfer", None, 100.0));
+        let balance: f64 = conn
+            .query_row("SELECT balance FROM accounts WHERE id = 1", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(balance, 1000.0);
+    }
+
+    /// Przecinek jest legalnym znakiem w nazwie tagu i nie może rozbijać listy.
+    #[test]
+    fn test_tags_with_comma_survive_roundtrip() {
+        let mut conn = setup();
+        let mut p = payload("expense", None, 25.0);
+        p.tags = Some(vec!["Warszawa, Centrum".to_string(), "dom".to_string()]);
+        let id = create_transaction(&mut conn, p).unwrap();
+
+        let tx = get_transaction_by_id(&conn, id).unwrap();
+        let mut tags = tx.tags.unwrap();
+        tags.sort();
+        assert_eq!(tags, vec!["Warszawa, Centrum".to_string(), "dom".to_string()]);
+    }
+
+    #[test]
+    fn test_delete_transaction_restores_balance_and_prunes_tags() {
+        let mut conn = setup();
+        let mut p = payload("expense", None, 300.0);
+        p.tags = Some(vec!["jednorazowy".to_string()]);
+        let id = create_transaction(&mut conn, p).unwrap();
+
+        let after_insert: f64 = conn
+            .query_row("SELECT balance FROM accounts WHERE id = 1", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(after_insert, 700.0);
+
+        delete_transaction(&mut conn, id).unwrap();
+
+        let after_delete: f64 = conn
+            .query_row("SELECT balance FROM accounts WHERE id = 1", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(after_delete, 1000.0);
+
+        let tag_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM tags", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(tag_count, 0);
+    }
+
+    #[test]
+    fn test_bulk_insert_skips_duplicates() {
+        let mut conn = setup();
+        let inserted = bulk_insert_transactions(
+            &mut conn,
+            vec![
+                payload("expense", None, 10.0),
+                payload("expense", None, 10.0), // identyczny wpis => duplikat
+                payload("expense", None, 20.0),
+            ],
+        )
+        .unwrap();
+        assert_eq!(inserted, 2);
+    }
 }

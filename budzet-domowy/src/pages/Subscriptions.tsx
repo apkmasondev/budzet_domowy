@@ -5,6 +5,7 @@ import { useCategories, useAccounts, useRecurrings, useAddRecurring, useUpdateRe
 import { Button } from "../components/ui/Button";
 import { Modal } from "../components/ui/Modal";
 import { EmptyState } from "../components/ui/EmptyState";
+import { FREQUENCY_LABELS, RECURRING_FREQUENCIES, type RecurringFrequency, type RecurringSuggestion, type RecurringTransaction } from "../types";
 
 export default function Subscriptions() {
   const { data: recurrings = [], isLoading } = useRecurrings();
@@ -27,13 +28,13 @@ export default function Subscriptions() {
     amount: "",
     category_id: "",
     account_id: "",
-    frequency: "monthly",
+    frequency: "monthly" as RecurringFrequency,
     next_date: new Date().toISOString().split('T')[0],
     day_of_month: new Date().getDate().toString()
   };
   const [formData, setFormData] = useState(defaultFormData);
 
-  const openModalWithSuggestion = (sug: any) => {
+  const openModalWithSuggestion = (sug: RecurringSuggestion) => {
     let nextDateStr = new Date().toISOString().split('T')[0];
     let dom = new Date().getDate().toString();
     if (sug.last_date) {
@@ -47,7 +48,7 @@ export default function Subscriptions() {
       amount: sug.amount.toFixed(2),
       category_id: sug.category_id ? sug.category_id.toString() : "",
       account_id: sug.account_id ? sug.account_id.toString() : "",
-      frequency: "monthly",
+      frequency: "monthly" as RecurringFrequency,
       next_date: nextDateStr,
       day_of_month: dom
     });
@@ -55,7 +56,7 @@ export default function Subscriptions() {
     setIsModalOpen(true);
   };
 
-  const openEditModal = (rec: any) => {
+  const openEditModal = (rec: RecurringTransaction) => {
     setEditingId(rec.id);
     setFormData({
       name: rec.name,
@@ -64,22 +65,38 @@ export default function Subscriptions() {
       account_id: rec.account_id ? rec.account_id.toString() : "",
       frequency: rec.frequency,
       next_date: rec.next_date,
-      day_of_month: rec.day_of_month.toString()
+      // day_of_month jest w bazie NULLABLE. Bez tego zabezpieczenia edycja
+      // subskrypcji bez ustawionego dnia wywalała się na `null.toString()`.
+      day_of_month: rec.day_of_month != null
+        ? rec.day_of_month.toString()
+        : (rec.next_date.split('-')[2] ?? new Date().getDate().toString())
     });
     setIsModalOpen(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const parsedAmount = parseFloat(formData.amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      showAlert("Nieprawidłowa kwota", "Kwota subskrypcji musi być liczbą większą od zera.");
+      return;
+    }
+    const parsedDay = parseInt(formData.day_of_month);
+    if (!Number.isFinite(parsedDay) || parsedDay < 1 || parsedDay > 31) {
+      showAlert("Nieprawidłowy dzień", "Dzień rozliczenia musi mieścić się w zakresie 1-31.");
+      return;
+    }
+
     try {
       const payload = {
-        name: formData.name,
-        amount: parseFloat(formData.amount),
+        name: formData.name.trim(),
+        amount: parsedAmount,
         category_id: formData.category_id ? parseInt(formData.category_id) : undefined,
         account_id: formData.account_id ? parseInt(formData.account_id) : undefined,
         frequency: formData.frequency,
         next_date: formData.next_date,
-        day_of_month: parseInt(formData.day_of_month)
+        day_of_month: parsedDay
       };
 
       if (editingId) {
@@ -87,17 +104,18 @@ export default function Subscriptions() {
       } else {
         await addRecurringMutation.mutateAsync(payload);
       }
-      
+
       if (activeSuggestion) {
         ignoreSuggestionMutation.mutate(activeSuggestion);
       }
-      
+
       setIsModalOpen(false);
       setEditingId(null);
       setActiveSuggestion(null);
       setFormData(defaultFormData);
-    } catch (error) {
-      showAlert("Błąd", "Nie udało się zapisać subskrypcji.");
+    } catch (error: any) {
+      // Komunikat z backendu zamiast generycznego "Błąd" — mówi, co dokładnie odrzucono.
+      showAlert("Nie udało się zapisać subskrypcji", String(error));
     }
   };
 
@@ -201,8 +219,10 @@ export default function Subscriptions() {
               <div className="flex items-center gap-2 mb-4 flex-wrap">
                 <p className="text-2xl font-black">{rec.amount.toFixed(2)} PLN</p>
                 {(() => {
-                  const currentMonth = new Date().toISOString().substring(0, 7);
-                  const isPaidThisMonth = rec.next_date.substring(0, 7) > currentMonth;
+                  // "Zaksięgowano" = nie ma nic zaległego do pobrania. Porównanie po
+                  // samym miesiącu było błędne dla częstotliwości innych niż miesięczna.
+                  const today = new Date().toISOString().substring(0, 10);
+                  const isPaidThisMonth = rec.next_date > today;
                   return isPaidThisMonth ? (
                     <span className="text-[10px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                       Zaksięgowano
@@ -218,7 +238,12 @@ export default function Subscriptions() {
               <div className="space-y-2 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <Calendar size={16} />
-                  <span>Co miesiąc (dzień: {rec.day_of_month})</span>
+                  {/* Wyświetlamy faktyczną częstotliwość z bazy — wcześniej etykieta
+                      była zaszyta na sztywno jako "Co miesiąc". */}
+                  <span>
+                    {FREQUENCY_LABELS[rec.frequency] ?? "Co miesiąc"}
+                    {rec.frequency !== "weekly" && rec.day_of_month != null && ` (dzień: ${rec.day_of_month})`}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Layers size={16} />
@@ -269,15 +294,30 @@ export default function Subscriptions() {
               {expenseCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
             </select>
           </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Częstotliwość</label>
+            <select
+              required
+              className="w-full bg-background text-foreground border border-border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              value={formData.frequency}
+              onChange={e => setFormData({ ...formData, frequency: e.target.value as RecurringFrequency })}
+            >
+              {RECURRING_FREQUENCIES.map(freq => (
+                <option key={freq} value={freq}>{FREQUENCY_LABELS[freq]}</option>
+              ))}
+            </select>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Pierwsza płatność</label>
-              <input required type="date" className="w-full bg-background border border-border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50" value={formData.next_date} onChange={e => setFormData({...formData, next_date: e.target.value, day_of_month: e.target.value.split('-')[2]})} />
+              <input required type="date" className="w-full bg-background border border-border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50" value={formData.next_date} onChange={e => setFormData({...formData, next_date: e.target.value, day_of_month: e.target.value.split('-')[2] ?? formData.day_of_month})} />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Dzień rozliczenia</label>
-              <input required type="number" min="1" max="31" className="w-full bg-background border border-border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50" value={formData.day_of_month} onChange={e => setFormData({...formData, day_of_month: e.target.value})} />
-            </div>
+            {formData.frequency !== "weekly" && (
+              <div>
+                <label className="block text-sm font-medium mb-1">Dzień rozliczenia</label>
+                <input required type="number" min="1" max="31" className="w-full bg-background border border-border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50" value={formData.day_of_month} onChange={e => setFormData({...formData, day_of_month: e.target.value})} />
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-3 mt-4">
             <Button type="button" onClick={() => { setIsModalOpen(false); setActiveSuggestion(null); }} variant="ghost">Anuluj</Button>

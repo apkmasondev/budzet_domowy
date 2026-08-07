@@ -2,10 +2,7 @@ import { Wallet, PieChart as PieChartIcon, TrendingDown, TrendingUp, History, Re
 import { useFinanceStore } from "../store/useFinanceStore";
 import SpendingPieChart from "../components/charts/SpendingPieChart";
 import MonthlyCashFlowChart from "../components/charts/MonthlyCashFlowChart";
-import { useAccounts, useCategories, useDashboardStats, useRecurrings, useBudgetStates } from "../lib/queries";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "../lib/api";
-import { useReadyToAssign } from "../hooks/useReadyToAssign";
+import { useAccounts, useCategories, useDashboardStats, useRecurrings, useBudgetStates, useAllTransactions, useReadyToAssignData } from "../lib/queries";
 import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
@@ -23,12 +20,12 @@ export default function Dashboard() {
   const { data: budgetStatesArray = [] } = useBudgetStates(currentMonth);
   const { data: categories = [] } = useCategories();
   const { data: recurrings = [] } = useRecurrings();
-  const readyToAssign = useReadyToAssign();
+  const { data: readyToAssign = 0 } = useReadyToAssignData();
 
-  const { data: transactions = [] } = useQuery({
-    queryKey: ["dashboardChartTransactions"],
-    queryFn: () => api.getTransactions(1000000, 0)
-  });
+  // Współdzielone z Raportami i unieważniane przez każdą mutację transakcji —
+  // wcześniej ten własny klucz nie był odświeżany przez nic, więc wykresy na
+  // Dashboardzie zostawały w tyle za resztą aplikacji aż do restartu.
+  const { data: transactions = [] } = useAllTransactions();
 
   const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
   
@@ -36,10 +33,11 @@ export default function Dashboard() {
   const incomesThisMonth = dashboardStats?.incomes || 0;
   const recentTransactions = dashboardStats?.recent_transactions || [];
 
-  const activeSubscriptions = recurrings ? recurrings.filter(r => r.active).length : 0;
-  const paidSubscriptionsCount = recurrings
-    ? recurrings.filter(r => r.active && r.next_date.substring(0, 7) > currentMonth).length
-    : 0;
+  const today = new Date().toISOString().substring(0, 10);
+  const activeSubscriptions = recurrings.filter(r => r.active).length;
+  // Zaksięgowane = brak zaległej płatności. Porównanie po miesiącu dawało zły wynik
+  // dla subskrypcji tygodniowych, kwartalnych i rocznych.
+  const paidSubscriptionsCount = recurrings.filter(r => r.active && r.next_date > today).length;
 
   const overbudgetAlerts = budgetStatesArray
     .filter(state => state.available < -0.01)

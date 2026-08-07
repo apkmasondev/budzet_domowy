@@ -39,10 +39,11 @@ pub fn calculate_zbb_states(conn: &Connection) -> Result<HashMap<String, HashMap
     let rows = stmt.query_map([], |row| {
         Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?, row.get::<_, f64>(2)?))
     })?;
+    // Błąd odczytu musi przerwać liczenie. Ciche pominięcie wiersza (`if let Ok`)
+    // dawało budżet zaniżony o brakujący przydział, bez żadnego sygnału dla użytkownika.
     for row in rows {
-        if let Ok((month, cat_id, amount)) = row {
-            assigned_map.insert((month, cat_id), amount);
-        }
+        let (month, cat_id, amount) = row?;
+        assigned_map.insert((month, cat_id), amount);
     }
 
     // 4. Fetch all activity (transactions)
@@ -57,7 +58,10 @@ pub fn calculate_zbb_states(conn: &Connection) -> Result<HashMap<String, HashMap
         ))
     })?;
     for row in rows {
-        if let Ok((month, Some(cat_id), type_, amount)) = row {
+        // Transakcje bez kategorii (np. wpłaty na cele) świadomie nie wchodzą do ZBB,
+        // ale błąd odczytu wiersza już tak — nie wolno go pomylić z brakiem kategorii.
+        let (month, category_id, type_, amount) = row?;
+        if let Some(cat_id) = category_id {
             let entry = activity_map.entry((month, cat_id)).or_insert(0.0);
             if type_ == "expense" {
                 *entry += amount;
@@ -145,4 +149,120 @@ pub fn get_ready_to_assign(conn: &Connection) -> Result<f64> {
     }
 
     Ok(total_accounts - sum_available)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    fn setup() -> Connection {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::run_migrations(&mut conn).unwrap();
+        crate::db::configure_connection(&conn).unwrap();
+        conn.execute(
+            "INSERT INTO accounts (id, name, type, currency, balance) VALUES (1, 'A', 'bank', 'PLN', 1000)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO categories (id, name, type) VALUES (1, 'Jedzenie', 'expense')",
+            [],
+        )
+        .unwrap();
+        conn
+    }
+
+    fn assign(conn: &Connection, month: &str, amount: f64) {
+        conn.execute(
+            "INSERT INTO budgets (category_id, month, amount) VALUES (1, ?1, ?2)",
+            rusqlite::params![month, amount],
+        )
+        .unwrap();
+    }
+
+    fn spend(conn: &Connection, date: &str, amount: f64) {
+        conn.execute(
+            "INSERT INTO transactions (account_id, category_id, amount, type, date) VALUES (1, 1, ?1, 'expense', ?2)",
+            rusqlite::params![amount, date],
+        )
+        .unwrap();
+    }
+
+    fn state_for(conn: &Connection, month: &str) -> CategoryState {
+        get_budget_states(conn, month).unwrap().into_iter().next().unwrap()
+    }
+
+    /// Niewykorzystana nadwyżka przechodzi na kolejny miesiąc.
+    #[test]
+    fn test_positive_carry_over() {
+        let conn = setup();
+        assign(&conn, "2024-01", 500.0);
+        spend(&conn, "2024-01-15", 200.0);
+        assign(&conn, "2024-02", 500.0);
+
+        let jan = state_for(&conn, "2024-01");
+        assert_eq!(jan.assigned, 500.0);
+        assert_eq!(jan.activity, 200.0);
+        assert_eq!(jan.available, 300.0);
+
+        let feb = state_for(&conn, "2024-02");
+        assert_eq!(feb.rollover, 300.0);
+        assert_eq!(feb.available, 800.0);
+    }
+
+    /// Debet NIE przechodzi na kolejny miesiąc (pokrywa go "Do Rozdysponowania"),
+    /// ale musi zostać zaraportowany jako `overspent`.
+    #[test]
+    fn test_overspend_does_not_carry_but_is_reported() {
+        let conn = setup();
+        assign(&conn, "2024-01", 100.0);
+        spend(&conn, "2024-01-15", 250.0);
+        assign(&conn, "2024-02", 100.0);
+
+        let jan = state_for(&conn, "2024-01");
+        assert_eq!(jan.available, -150.0);
+
+        let feb = state_for(&conn, "2024-02");
+        assert_eq!(feb.rollover, 0.0);
+        assert_eq!(feb.overspent, -150.0);
+        assert_eq!(feb.available, 100.0);
+    }
+
+    /// Zwrot (income na kategorii wydatkowej) pomniejsza aktywność miesiąca.
+    #[test]
+    fn test_refund_reduces_activity() {
+        let conn = setup();
+        assign(&conn, "2024-01", 500.0);
+        spend(&conn, "2024-01-10", 300.0);
+        conn.execute(
+            "INSERT INTO transactions (account_id, category_id, amount, type, date) VALUES (1, 1, 100, 'income', '2024-01-20')",
+            [],
+        )
+        .unwrap();
+
+        let jan = state_for(&conn, "2024-01");
+        assert_eq!(jan.activity, 200.0);
+        assert_eq!(jan.available, 300.0);
+    }
+
+    #[test]
+    fn test_ready_to_assign_subtracts_assigned_money() {
+        let conn = setup();
+        // 1000 zł na koncie, 400 zł przypisane i nietknięte => 600 zł do rozdysponowania.
+        let current = chrono::Local::now().format("%Y-%m").to_string();
+        assign(&conn, &current, 400.0);
+        assert!((get_ready_to_assign(&conn).unwrap() - 600.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_empty_database_is_all_zeros() {
+        let conn = setup();
+        let current = chrono::Local::now().format("%Y-%m").to_string();
+        let state = state_for(&conn, &current);
+        assert_eq!(state.assigned, 0.0);
+        assert_eq!(state.activity, 0.0);
+        assert_eq!(state.available, 0.0);
+        assert_eq!(state.rollover, 0.0);
+    }
 }

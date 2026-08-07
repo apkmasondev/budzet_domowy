@@ -20,8 +20,3 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<()> {
     )?;
     Ok(())
 }
-
-pub fn delete_setting(conn: &Connection, key: &str) -> Result<()> {
-    conn.execute("DELETE FROM app_settings WHERE key = ?1", params![key])?;
-    Ok(())
-}

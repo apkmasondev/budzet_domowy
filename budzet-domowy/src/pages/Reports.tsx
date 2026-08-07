@@ -1,8 +1,6 @@
 import { useState, useMemo } from "react";
 import { ArrowUpRight, ArrowDownRight, Target, Activity, Wallet } from "lucide-react";
-import { useAccounts, useCategories } from "../lib/queries";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "../lib/api";
+import { useAccounts, useCategories, useAllTransactions } from "../lib/queries";
 import { useFinanceStore } from "../store/useFinanceStore";
 import BalanceTrendChart from "../components/charts/BalanceTrendChart";
 import MonthlyCashFlowChart from "../components/charts/MonthlyCashFlowChart";
@@ -14,10 +12,9 @@ const formatCurrency = (amount: number, privacyMode: boolean) => {
 };
 
 export default function Reports() {
-  const { data: allTransactions = [] } = useQuery({
-    queryKey: ["reportTransactions"],
-    queryFn: () => api.getTransactions(1000000, 0)
-  });
+  // Ten sam cache co Dashboard — jedno pobranie zamiast dwóch niezależnych,
+  // i odświeżane automatycznie po każdej zmianie transakcji.
+  const { data: allTransactions = [] } = useAllTransactions();
   const { data: allAccounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
   const { privacyMode } = useFinanceStore();

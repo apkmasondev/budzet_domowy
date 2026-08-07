@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useFinanceStore } from "../../store/useFinanceStore";
+import { useDialogStore } from "../../store/useDialogStore";
 import { ArrowDownRight, ArrowUpRight, AlertTriangle, ArrowRightLeft, Plus } from "lucide-react";
 import { useAccounts, useCategories, useAddTransaction, useUpdateTransaction, useTags, useTransaction, useCreateCategory } from "../../lib/queries";
 
@@ -27,8 +28,8 @@ export default function GlobalTransactionModal() {
   const [showNewCat, setShowNewCat] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const createCategoryMutation = useCreateCategory();
-  
-
+  const { showAlert } = useDialogStore();
+  const isSaving = addTransactionMutation.isPending || updateTransactionMutation.isPending;
 
   useEffect(() => {
     if (isTransactionModalOpen && editingTransactionId && txToEdit) {
@@ -50,16 +51,8 @@ export default function GlobalTransactionModal() {
     }
   }, [isTransactionModalOpen, editingTransactionId, txToEdit]);
 
-  // Close on Escape when not overdrafting
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isTransactionModalOpen && !pendingOverdraft) {
-        setTransactionModalOpen(false);
-      }
-    };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [isTransactionModalOpen, pendingOverdraft, setTransactionModalOpen]);
+  // Obsługa Escape żyje w komponencie <Modal> i jest świadoma stosu okien,
+  // więc lokalny nasłuch (który zamykał formularz spod ostrzeżenia o debecie) zniknął.
 
   if (!isTransactionModalOpen) return null;
 
@@ -92,25 +85,43 @@ export default function GlobalTransactionModal() {
       setDescription("");
       setTagsInput("");
       setPendingOverdraft(null);
-    } catch (error) {
-      console.error("Błąd zapisu:", error);
+    } catch (error: any) {
+      // Backend odrzuca m.in. kwotę <= 0 i przelew na to samo konto. Wcześniej błąd
+      // lądował wyłącznie w konsoli — formularz po prostu "nie reagował".
+      setPendingOverdraft(null);
+      showAlert("Nie udało się zapisać operacji", String(error));
     }
   };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!accountId) return;
-    if (type === "transfer" && !transferToId) return;
     if (type !== "transfer" && !categoryId && !editingTransactionId) return;
 
     const parsedAmount = parseFloat(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      showAlert("Nieprawidłowa kwota", "Kwota operacji musi być liczbą większą od zera.");
+      return;
+    }
+
+    if (type === "transfer") {
+      if (!transferToId) {
+        showAlert("Brak konta docelowego", "Wskaż konto, na które ma trafić przelew.");
+        return;
+      }
+      if (transferToId === accountId) {
+        showAlert("Nieprawidłowy przelew", "Konto źródłowe i docelowe muszą być różne.");
+        return;
+      }
+    }
+
     const selectedAccount = accounts.find(a => a.id === parseInt(accountId));
-    
+
     if (type === "expense" && selectedAccount && selectedAccount.balance < parsedAmount) {
       setPendingOverdraft({ amount: parsedAmount, accountName: selectedAccount.name });
       return;
     }
-    
+
     await executeTransaction(parsedAmount);
   };
 
@@ -221,10 +232,16 @@ export default function GlobalTransactionModal() {
                     <button 
                       type="button" 
                       onClick={async () => {
-                        if (newCatName.trim()) {
-                          await createCategoryMutation.mutateAsync({ name: newCatName.trim(), type: type, color: "#8b5cf6" });
+                        if (!newCatName.trim()) return;
+                        try {
+                          // Świeżo utworzona kategoria od razu staje się wybraną —
+                          // wcześniej wracała pusta lista i trzeba było szukać jej ręcznie.
+                          const newId = await createCategoryMutation.mutateAsync({ name: newCatName.trim(), type: type, color: "#8b5cf6" });
+                          setCategoryId(String(newId));
                           setNewCatName("");
                           setShowNewCat(false);
+                        } catch (error: any) {
+                          showAlert("Nie udało się dodać kategorii", String(error));
                         }
                       }}
                       className="px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90"
@@ -282,17 +299,20 @@ export default function GlobalTransactionModal() {
 
             <div className="flex justify-end gap-3 mt-4">
               <Button type="button" onClick={() => setTransactionModalOpen(false)} variant="ghost">Anuluj</Button>
-              <Button type="submit" variant="primary">{editingTransactionId ? "Zaktualizuj" : "Zapisz"}</Button>
+              <Button type="submit" variant="primary" disabled={isSaving}>
+                {isSaving ? "Zapisywanie..." : editingTransactionId ? "Zaktualizuj" : "Zapisz"}
+              </Button>
             </div>
           </form>
       </Modal>
 
       {/* Modal Ostrzegawczy Ujemnego Salda */}
-      <Modal 
-        isOpen={!!pendingOverdraft} 
-        onClose={() => setPendingOverdraft(null)} 
+      <Modal
+        isOpen={!!pendingOverdraft}
+        onClose={() => setPendingOverdraft(null)}
         maxWidth="sm"
         showCloseButton={false}
+        closeOnBackdropClick={false}
       >
         <div className="flex flex-col items-center text-center">
           <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mb-5">

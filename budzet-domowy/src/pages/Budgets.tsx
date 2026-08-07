@@ -5,7 +5,7 @@ import { useCategories, useUpsertBudget, useCopyBudgets, useBudgetStates, useRea
 import { Button } from "../components/ui/Button";
 
 export default function Budgets() {
-  const { showConfirm } = useDialogStore();
+  const { showConfirm, showAlert } = useDialogStore();
   
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
 
@@ -91,11 +91,25 @@ export default function Budgets() {
     );
   };
 
-  const handleInlineSave = async (categoryId: number, value: string) => {
-    const amount = parseFloat(value) || 0;
+  const handleInlineSave = async (categoryId: number, value: string, input: HTMLInputElement) => {
     const currentAssigned = categoryStates[categoryId]?.assigned || 0;
+    const amount = parseFloat(value);
+
+    // Ujemny przydział rozjeżdżał wyliczenia ZBB (rollover bierze pod uwagę tylko
+    // wartości dodatnie), a backend go teraz odrzuca — łapiemy to zanim poleci zapis.
+    if (!Number.isFinite(amount) || amount < 0) {
+      showAlert("Nieprawidłowa kwota", "Przydzielona kwota nie może być ujemna.");
+      input.value = currentAssigned.toFixed(2);
+      return;
+    }
+
     if (Math.abs(currentAssigned - amount) > 0.001) {
-       await upsertBudgetMutation.mutateAsync({ category_id: categoryId, month: selectedMonth, amount });
+      try {
+        await upsertBudgetMutation.mutateAsync({ category_id: categoryId, month: selectedMonth, amount });
+      } catch (error: any) {
+        showAlert("Nie udało się zapisać budżetu", String(error));
+        input.value = currentAssigned.toFixed(2);
+      }
     }
   };
 
@@ -224,8 +238,9 @@ export default function Budgets() {
                             type="number"
                             step="0.01"
                             className="bg-card border border-border hover:border-primary/50 hover:bg-muted/20 focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 rounded-lg pl-2 pr-7 py-1.5 text-right w-28 font-bold transition-all outline-none shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            min="0"
                             defaultValue={state.assigned.toFixed(2)}
-                            onBlur={(e) => handleInlineSave(category.id, e.target.value)}
+                            onBlur={(e) => handleInlineSave(category.id, e.target.value, e.target)}
                             onKeyDown={(e) => { if(e.key === 'Enter') e.currentTarget.blur() }}
                             disabled={upsertBudgetMutation.isPending}
                           />

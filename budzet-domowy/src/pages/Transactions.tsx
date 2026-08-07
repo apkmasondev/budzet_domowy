@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useFinanceStore } from "../store/useFinanceStore";
-import { Plus, ArrowDownRight, ArrowUpRight, Search, Download, ArrowUpDown, Filter, Edit2, Trash2, Calendar, X } from "lucide-react";
+import { Plus, ArrowDownRight, ArrowUpRight, ArrowLeftRight, Search, Download, ArrowUpDown, Filter, Edit2, Trash2, Calendar, X } from "lucide-react";
 import { useTransactions, useTransactionMonths, useAccounts, useCategories, useDeleteTransaction } from "../lib/queries";
 import { useDialogStore } from "../store/useDialogStore";
 import { save } from "@tauri-apps/plugin-dialog";
@@ -11,6 +11,13 @@ import { useClickOutside } from "../hooks/useClickOutside";
 import { api } from "../lib/api";
 import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
+import type { Transaction } from "../types";
+
+const TYPE_LABELS: Record<Transaction["type"], string> = {
+  income: "Przychód",
+  expense: "Wydatek",
+  transfer: "Przelew",
+};
 
 const formatMonthLabel = (monthStr: string) => {
   if (!monthStr) return "ALL";
@@ -29,7 +36,15 @@ export default function Transactions() {
   const [sortBy, setSortBy] = useState<"date_desc" | "date_asc" | "amount_desc" | "amount_asc">("date_desc");
   const [filterMonth, setFilterMonth] = useState<string>(searchParams.get("month") || "");
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading: isTransactionsLoading } = useTransactions(searchTerm, filterMonth, filterType, sortBy);
+  // Wyszukiwarka odpytuje bazę, więc każde naciśnięcie klawisza tworzyło nowe
+  // zapytanie i nowy wpis w cache. Debounce ogranicza to do jednego na pauzę w pisaniu.
+  const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 250);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading: isTransactionsLoading } = useTransactions(debouncedSearch, filterMonth, filterType, sortBy);
   const { data: availableMonths = [] } = useTransactionMonths();
   const transactions = useMemo(() => data ? data.pages.flat() : [], [data]);
   const { data: accounts = [] } = useAccounts();
@@ -50,21 +65,22 @@ export default function Transactions() {
   const exportToCSV = async () => {
     try {
       // Pobieramy wszystkie pasujące z backendu (omijamy paginację)
-      const allMatchedTxs = await api.getTransactions(1000000, 0, searchTerm, filterMonth, filterType, sortBy);
-      
+      const allMatchedTxs = await api.getTransactions(1000000, 0, debouncedSearch, filterMonth, filterType, sortBy);
+
       const header = "Data,Typ,Opis,Kategoria,Konto,Kwota\n";
       const rows = allMatchedTxs.map(tx => {
-        const isExpense = tx.type === "expense";
         const cat = categories.find(c => c.id === tx.category_id);
         const acc = accounts.find(a => a.id === tx.account_id);
-        
+
         const date = tx.date;
-        const typeStr = isExpense ? "Wydatek" : "Przychód";
+        // Przelewy trafiały do CSV jako "Przychód" z dodatnią kwotą, co zawyżało
+        // sumy po zaimportowaniu pliku do arkusza.
+        const typeStr = TYPE_LABELS[tx.type];
         const desc = tx.description ? `"${tx.description.replace(/"/g, '""')}"` : "";
         const catName = cat ? `"${cat.name.replace(/"/g, '""')}"` : "";
         const accName = acc ? `"${acc.name.replace(/"/g, '""')}"` : "";
-        const amountStr = isExpense ? `-${tx.amount}` : `${tx.amount}`;
-        
+        const amountStr = tx.type === "income" ? `${tx.amount}` : `-${tx.amount}`;
+
         return `${date},${typeStr},${desc},${catName},${accName},${amountStr}`;
       }).join("\n");
       
@@ -150,9 +166,6 @@ export default function Transactions() {
 
       <div className="bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl shadow-sm relative z-10 flex flex-col overflow-hidden" style={{ maxHeight: 'calc(100vh - 180px)' }}>
         
-        {isTransactionsLoading && (
-           <div className="p-8 text-center text-muted-foreground animate-pulse">Ładowanie transakcji...</div>
-        )}
 
         {/* Filtry i Szukajka */}
         <div className="p-4 border-b border-border/50 bg-muted/10 flex flex-col sm:flex-row gap-4 items-center justify-between relative z-20">
@@ -267,11 +280,20 @@ export default function Transactions() {
           </div>
         </div>
 
-        {filteredAndSorted.length === 0 ? (
-          <EmptyState 
-            icon={Filter} 
-            title="Brak pasujących transakcji" 
-            description="Zmień kryteria wyszukiwania lub filtry, aby znaleźć to czego szukasz."
+        {/* Rozróżniamy pierwsze ładowanie od pustego wyniku — wcześniej podczas
+            pobierania danych migał komunikat "Brak pasujących transakcji". */}
+        {isTransactionsLoading ? (
+          <div className="p-8 text-center text-muted-foreground animate-pulse">Ładowanie transakcji...</div>
+        ) : filteredAndSorted.length === 0 ? (
+          <EmptyState
+            icon={Filter}
+            title={hasActiveFilters ? "Brak pasujących transakcji" : "Brak transakcji"}
+            description={hasActiveFilters
+              ? "Zmień kryteria wyszukiwania lub filtry, aby znaleźć to czego szukasz."
+              : "Dodaj swój pierwszy wpis, aby zacząć budować historię finansów."}
+            action={!hasActiveFilters ? (
+              <Button onClick={() => setTransactionModalOpen(true)} variant="primary"><Plus size={16} /> Dodaj wpis</Button>
+            ) : undefined}
           />
         ) : (
           <div ref={parentRef} className="flex-1 overflow-y-auto relative z-10">
@@ -281,9 +303,19 @@ export default function Transactions() {
             >
               {virtualizer.getVirtualItems().map((virtualRow) => {
                 const tx = filteredAndSorted[virtualRow.index];
+                // Przelew nie jest ani przychodem, ani wydatkiem — wcześniej trafiał
+                // do gałęzi "else" i wyświetlał się jako zielony przychód ze znakiem "+".
                 const isExpense = tx.type === "expense";
+                const isTransfer = tx.type === "transfer";
+                const amountClass = isTransfer ? "text-blue-500" : isExpense ? "text-red-500" : "text-emerald-500";
+                const iconClass = isTransfer
+                  ? "bg-blue-500/10 text-blue-500"
+                  : isExpense
+                    ? "bg-red-500/10 text-red-500"
+                    : "bg-emerald-500/10 text-emerald-500";
                 const cat = categories.find(c => c.id === tx.category_id);
                 const acc = accounts.find(a => a.id === tx.account_id);
+                const transferTarget = isTransfer ? accounts.find(a => a.id === tx.transfer_to_id) : undefined;
                 return (
                   <div 
                     key={tx.id} 
@@ -293,22 +325,29 @@ export default function Transactions() {
                     style={{ transform: `translateY(${virtualRow.start}px)` }}
                   >
                     <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isExpense ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
-                        {isExpense ? <ArrowDownRight size={20} /> : <ArrowUpRight size={20} />}
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${iconClass}`}>
+                        {isTransfer ? <ArrowLeftRight size={20} /> : isExpense ? <ArrowDownRight size={20} /> : <ArrowUpRight size={20} />}
                       </div>
                       <div>
                         <p className="font-semibold text-foreground text-base tracking-tight mb-1">
                           {tx.description ? tx.description : (cat?.name || "Transakcja")}
                         </p>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <div className="flex items-center gap-1.5 bg-muted/70 px-2 py-0.5 rounded-md">
-                            <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: cat?.color || '#8b5cf6' }} />
-                            <span className="text-[10px] uppercase tracking-wider font-bold text-foreground">
-                              {cat?.name || "Bez kategorii"}
-                            </span>
-                          </div>
+                          {isTransfer ? (
+                            <div className="flex items-center gap-1.5 bg-blue-500/10 px-2 py-0.5 rounded-md">
+                              <span className="text-[10px] uppercase tracking-wider font-bold text-blue-500">Przelew</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 bg-muted/70 px-2 py-0.5 rounded-md">
+                              <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: cat?.color || '#8b5cf6' }} />
+                              <span className="text-[10px] uppercase tracking-wider font-bold text-foreground">
+                                {cat?.name || "Bez kategorii"}
+                              </span>
+                            </div>
+                          )}
                           <span className="text-xs font-medium px-2 py-0.5 bg-secondary/50 text-secondary-foreground rounded-md">
                             {acc?.name || "Nieznane konto"}
+                            {transferTarget && ` → ${transferTarget.name}`}
                           </span>
                           <span className="text-xs text-muted-foreground font-medium">{tx.date}</span>
                           {tx.tags && tx.tags.map(tag => (
@@ -343,8 +382,8 @@ export default function Transactions() {
                         </button>
                       </div>
 
-                      <div className={`font-bold text-lg tracking-tight ${isExpense ? 'text-red-500' : 'text-emerald-500'} shrink-0`}>
-                        {isExpense ? "-" : "+"}{privacyMode ? '***' : tx.amount.toFixed(2)} PLN
+                      <div className={`font-bold text-lg tracking-tight ${amountClass} shrink-0`}>
+                        {isTransfer ? "" : isExpense ? "-" : "+"}{privacyMode ? '***' : tx.amount.toFixed(2)} PLN
                       </div>
                     </div>
                   </div>

@@ -1,13 +1,5 @@
 use rusqlite::{Connection, Result, params};
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Budget {
-    pub id: i64,
-    pub category_id: i64,
-    pub month: String,
-    pub amount: f64,
-}
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct UpsertBudgetPayload {
@@ -16,7 +8,32 @@ pub struct UpsertBudgetPayload {
     pub amount: f64,
 }
 
+/// Sortowanie i porównania miesięcy w ZBB są leksykalne, więc format "RRRR-MM"
+/// jest twardym wymogiem — dowolny inny łańcuch cicho psuł carry-over.
+fn is_valid_month(month: &str) -> bool {
+    let bytes = month.as_bytes();
+    if bytes.len() != 7 || bytes[4] != b'-' {
+        return false;
+    }
+    if !bytes[..4].iter().all(u8::is_ascii_digit) || !bytes[5..].iter().all(u8::is_ascii_digit) {
+        return false;
+    }
+    matches!(month[5..].parse::<u32>(), Ok(1..=12))
+}
+
 pub fn upsert_budget(conn: &Connection, payload: UpsertBudgetPayload) -> Result<()> {
+    // Ujemny przydział rozjeżdżał "Do Rozdysponowania" (rollover liczy tylko dodatnie
+    // wartości, więc ujemna kwota znikała z bilansu bez śladu).
+    if !payload.amount.is_finite() || payload.amount < 0.0 {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "Przydzielona kwota nie może być ujemna".to_string(),
+        ));
+    }
+    if !is_valid_month(&payload.month) {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "Miesiąc musi być w formacie RRRR-MM".to_string(),
+        ));
+    }
     conn.execute(
         "INSERT INTO budgets (category_id, month, amount) VALUES (?1, ?2, ?3)
          ON CONFLICT(category_id, month) DO UPDATE SET amount=excluded.amount",
@@ -25,50 +42,22 @@ pub fn upsert_budget(conn: &Connection, payload: UpsertBudgetPayload) -> Result<
     Ok(())
 }
 
-pub fn get_budgets(conn: &Connection, month: &str) -> Result<Vec<Budget>> {
-    let mut stmt = conn.prepare("SELECT id, category_id, month, amount FROM budgets WHERE month = ?1")?;
-    let iter = stmt.query_map(params![month], |row| {
-        Ok(Budget {
-            id: row.get(0)?,
-            category_id: row.get(1)?,
-            month: row.get(2)?,
-            amount: row.get(3)?,
-        })
-    })?;
-
-    let mut res = Vec::new();
-    for item in iter {
-        res.push(item?);
+pub fn copy_budgets_to_month(conn: &mut Connection, from_month: &str, to_month: &str) -> Result<()> {
+    if !is_valid_month(from_month) || !is_valid_month(to_month) {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "Miesiąc musi być w formacie RRRR-MM".to_string(),
+        ));
     }
-    Ok(res)
-}
 
-pub fn get_all_budgets(conn: &Connection) -> Result<Vec<Budget>> {
-    let mut stmt = conn.prepare("SELECT id, category_id, month, amount FROM budgets")?;
-    let iter = stmt.query_map([], |row| {
-        Ok(Budget {
-            id: row.get(0)?,
-            category_id: row.get(1)?,
-            month: row.get(2)?,
-            amount: row.get(3)?,
-        })
-    })?;
-
-    let mut res = Vec::new();
-    for item in iter {
-        res.push(item?);
-    }
-    Ok(res)
-}
-
-pub fn copy_budgets_to_month(conn: &Connection, from_month: &str, to_month: &str) -> Result<()> {
-    let old_budgets = get_budgets(conn, from_month)?;
-    for b in old_budgets {
-        upsert_budget(conn, UpsertBudgetPayload {
-            category_id: b.category_id,
-            month: to_month.to_string(),
-            amount: b.amount,
-        })?;
-    }
+    // Kopiowanie musi być atomowe — przy błędzie w połowie użytkownik zostawał
+    // z częściowo przepisanym planem budżetu.
+    let tx = conn.transaction()?;
+    tx.execute(
+        "INSERT INTO budgets (category_id, month, amount)
+         SELECT category_id, ?2, amount FROM budgets WHERE month = ?1
+         ON CONFLICT(category_id, month) DO UPDATE SET amount = excluded.amount",
+        params![from_month, to_month],
+    )?;
+    tx.commit()?;
     Ok(())
 }

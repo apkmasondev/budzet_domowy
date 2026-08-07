@@ -1,206 +1,157 @@
 # Changelog
 
-Wszystkie znaczące zmiany w tym projekcie będą dokumentowane w tym pliku.
+Wszystkie znaczące zmiany w projekcie. Format oparty na [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/).
+
+## [2.1.0] - 2026-08-07 — Audyt kodu i stabilizacja
+
+Kompleksowy audyt frontendu i backendu. Pełny raport: [audit.md](audit.md).
+Schemat bazy podniesiony do **V7** (migracja automatyczna przy pierwszym starcie).
+
+### Naprawione — krytyczne
+
+- **Potwierdzenie ujemnego salda nie zapisywało operacji.** Kliknięcie „Kontynuuj" w ostrzeżeniu
+  o debecie zamykało formularz pod spodem, usuwając przycisk z DOM zanim zadziałało zdarzenie.
+  Każdy wydatek przekraczający saldo konta był po cichu porzucany.
+- **Przelew bez wskazanego konta docelowego** zapisywał się do bazy, nie ruszając żadnego salda —
+  historia i salda kont rozjeżdżały się trwale. Odrzucany jest teraz również przelew na to samo konto.
+- **Import kopii zapasowej mógł skasować dane bezpowrotnie** — bieżąca baza była usuwana przed
+  weryfikacją pliku źródłowego. Dodano walidację pliku i automatyczne wycofanie zmian przy błędzie.
+- **Import backupu ze starszej wersji nie uruchamiał migracji**, zostawiając nieaktualny schemat.
+- **Edycja subskrypcji bez ustawionego dnia rozliczenia** wywalała widok (`null.toString()`).
+
+### Naprawione — logika biznesowa
+
+- Częstotliwość subskrypcji była ignorowana — wszystko księgowało się co miesiąc. Obsługiwane są
+  teraz warianty tygodniowy, miesięczny, kwartalny i roczny (z wyborem w formularzu).
+- Dzień rozliczenia w krótszym miesiącu przeskakiwał na sztywno na 28. Teraz przycinany jest do
+  ostatniego dnia miesiąca (31 stycznia → 29 lutego → 31 marca).
+- Licznik nadrobionych płatności gubił zaksięgowane operacje; pętla nadrabiania zaległości
+  dostała ogranicznik chroniący przed zapętleniem przy starcie.
+- Ujemne kwoty przyjmowane przy wpłacie na cel (co **dodawało** pieniądze do konta), przy
+  budżetach (kwota znikała z „Do Rozdysponowania") i przy celach oszczędnościowych.
+- Brak walidacji formatu miesiąca w budżetach — dowolny inny format cicho psuł carry-over ZBB.
+- Kopiowanie budżetów między miesiącami nie było atomowe.
+- Przelewy prezentowane jako zielone przychody w historii, w eksporcie CSV („Przychód" z kwotą
+  dodatnią, co zawyżało sumy w arkuszu) i w podglądzie konta.
+- Wskaźnik „Zaksięgowano" dla subskrypcji działał poprawnie tylko dla częstotliwości miesięcznej.
+- Zwrot środków na cel przy usuwaniu transakcji wykonywał się niezależnie od jej typu.
+
+### Naprawione — dane i odświeżanie widoków
+
+- Wykresy na Dashboardzie i w Raportach **nie odświeżały się nigdy** — miały własne klucze cache,
+  których nie unieważniała żadna mutacja. Dane były nieaktualne aż do restartu aplikacji.
+- Kafelki „Wydatki/Przychody w tym miesiącu" oraz filtr miesięcy nie były unieważniane przez
+  żadną mutację.
+- Zduplikowany `useEffect` w widoku Kont wysyłał każde zapytanie dwa razy; ręczne pobieranie
+  danych mogło nadpisać widok odpowiedzią dla poprzednio wybranego konta.
+- Ekran powitalny migał przy każdym starcie u użytkowników mających już konta.
+- Wyszukiwarka transakcji odpytywała bazę na każdy wciśnięty klawisz (dodano debounce)
+  i mrugała komunikatem o braku wyników.
+- Nieczytelny plik CSV zostawiał pustą stronę bez komunikatu i bez możliwości wyboru innego pliku.
+- Podsumowanie importu pokazywało liczbę zaznaczonych wierszy zamiast faktycznie dodanych.
+
+### Naprawione — obsługa błędów
+
+- Błędy zapisu w modalu transakcji, przy wpłacie na cel i przy subskrypcjach trafiały wyłącznie
+  do konsoli — formularz sprawiał wrażenie zawieszonego. Wszystkie pokazują teraz przyczynę.
+- `get_dashboard_stats` i import masowy po cichu gubiły wiersze przy błędzie odczytu, zaniżając
+  sumy i przepuszczając duplikaty.
+
+### Naprawione — baza danych
+
+- Włączono tryb **WAL**. Bez niego `wal_checkpoint` wykonywany przed eksportem nic nie robił,
+  więc kopia zapasowa mogła pomijać najświeższe zapisy.
+- Dodano brakujące indeksy, m.in. na `transactions(date)` — kolumnę filtrowaną i grupowaną
+  praktycznie w każdym zapytaniu aplikacji (migracja V6).
+- Ignorowane sugestie subskrypcji trzymane były jako jeden ciąg rozdzielany przecinkami; opisy
+  bankowe zawierające przecinek powodowały, że ukryta sugestia wracała. Przeniesione do własnej
+  tabeli (migracja V7).
+- Tag zawierający przecinek w nazwie rozpadał się przy odczycie na dwa osobne tagi.
+- Tagi nigdy nie były sprzątane — lista podpowiedzi rosła w nieskończoność.
+- Reset fabryczny kasował PIN i tryb prywatności (mimo że okno potwierdzenia obiecuje wyłącznie
+  usunięcie danych finansowych), nie zerował sekwencji ID i nie czyścił ignorowanych sugestii.
+
+### Naprawione — bezpieczeństwo
+
+- PIN nie miał pola potwierdzenia i przyjmował znaki inne niż cyfry — takiego kodu nie dało się
+  wpisać na ekranie blokady, co trwale odcinało dostęp do aplikacji.
+- `removePin` nie odblokowywało aplikacji, a reset fabryczny nie odświeżał stanu autoryzacji.
+- Usunięto ładowanie czcionek z CDN Google — blokowane przez własną politykę CSP aplikacji,
+  więc nigdy nie działało, a mimo to generowało próby połączeń sieciowych przy każdym starcie.
+- Zaktualizowano zależności: 2 podatności o wysokiej i 1 o średniej istotności (`react-router`, `postcss`).
+- Aktualizacja Vite 7 → 8 i `@vitejs/plugin-react` 4 → 6 usuwa ostatnią podatność (odczyt plików
+  przez serwer deweloperski na Windows). Vite 8 opiera się na Rolldown/Oxc i nie używa już
+  `esbuild`, w którym była luka. **`npm audit`: 0 podatności.**
+  Efekt uboczny: build skrócił się z ~6,5 s do ~2 s, a bundle zmalał o ~15 kB.
+
+### Usunięte
+
+- Nieużywane pliki: `useFocusTrap.ts`, `useReadyToAssign.ts`, `App.css`, `react.svg`, `tauri.svg`.
+- Martwe komendy i funkcje: `get_transactions_count` (ignorowała filtr konta), `get_budgets`,
+  `get_all_budgets`, `get_tags_for_transaction`, `set_transaction_tags`, `delete_setting`.
+- Nieużywane zależności: `serde_json`, `tauri-plugin-opener`.
+
+### Zmienione
+
+- Klucze React Query zebrane w jednym miejscu (`queryKeys`); wszystkie zapytania o transakcje
+  współdzielą wspólny prefiks, więc jedno unieważnienie odświeża wszystkie zależne widoki.
+- Walidacja transakcji ujednolicona w jednej funkcji zamiast trzech rozjeżdżających się kopii.
+- Usunięto rzutowania `as any` i typy `any` z warstwy API oraz sygnatur komponentów.
+- Testy jednostkowe w Rust: **2 → 27** (salda, carry-over ZBB, harmonogram subskrypcji,
+  migracje, reset fabryczny, przypadki brzegowe).
+
+---
 
 ## [2.0.3]
 
-- **Kompleksowy Audyt i Refaktoryzacja UX/UI (Faza 20)**: Przeprowadzono gruntowny audyt wizualny całej aplikacji. Zastąpiono setki lokalnych stylów przycisków i okien dialogowych nowym, scentralizowanym systemem komponentów (`Button`, `Modal`, `EmptyState`). Ujednolicono układ i odstępy we wszystkich głównych sekcjach (`Transactions`, `Settings`, `Goals`, `Accounts`, `Subscriptions`, `Budgets`, `Reports`). Zaimplementowano ulepszony motyw szkła (glassmorphism: `bg-card/60 backdrop-blur-md`) w kontenerach i na zintegrowanych dropdownach, znacząco podnosząc poczucie "premium". Skonfigurowano nową obsługę `dark:` dla Tailwind v4 w celu absolutnej kontroli trybu jasnego/ciemnego.
+- **Audyt UX/UI (Faza 20)** — scentralizowany system komponentów (`Button`, `Modal`, `EmptyState`)
+  zamiast setek lokalnych styli, spójny glassmorphism, konfiguracja wariantu `dark:` dla Tailwind v4.
 
 ## [2.0.2]
 
-- **Odświeżenie wizualne Celów (Skarbonka Pro)**: Całkowicie przebudowano układ graficzny kart celów oszczędnościowych. Informacje o dacie docelowej oraz sugerowanej miesięcznej wpłacie zostały wydzielone do nowoczesnej, pełnowymiarowej sekcji z ikonami czasu (`Calendar`) i trendów (`TrendingUp`), zoptymalizowanej pod kątem wąskich ekranów (automatyczne układanie pionowe zapobiegające wykraczaniu poza ramki). Sekcja ta ukrywa się automatycznie po pełnym zrealizowaniu celu (100% kwoty), aby nie wprowadzać w błąd pozostałym czasem. Sugerowana kwota zyskała wyróżnioną mikro-kartę o wyraźnym tle o podwyższonym kontraście (`bg-indigo-100/70` w trybie jasnym oraz `dark:bg-indigo-950/50` in trybie ciemnym z dopasowanym obramowaniem `border-indigo-200/80` i kontrastowymi napisami `text-indigo-700/800`), rozwiązując problem "białego tła" zlewającego się na jasnych ekranach. Przycisk "Wpłać środki" otrzymał nowoczesny, trójwymiarowy efekt klikalności (reaktywne przesunięcie w pionie `hover:-translate-y-0.5`, delikatne powiększenie `hover:scale-[1.01]` oraz fizyczna reakcja na wciśnięcie `active:scale-[0.98]`) oraz lepiej widoczne tło. Dodatkowo zaimplementowano poprawną polską odmianę rzeczownika *"miesiąc"* dla pozostałego czasu (np. *"Pozostały 2 miesiące"*, *"Pozostało 5 miesięcy"* zamiast błędnego językowo *"Pozostało X miesięcy"* w każdym przypadku).
-- **Naprawa przełączania motywów w Tailwind v4**: Naprawiono problem polegający na tym, że Tailwind v4 domyślnie używał zapytania media query (`prefers-color-scheme`), ignorując stan aplikacji i wymuszając style ciemne (`dark:`) u użytkowników posiadających systemowy tryb ciemny w Windows, nawet gdy aplikacja była ręcznie przełączona w tryb jasny. Skonfigurowano dyrektywę `@custom-variant dark (&:where(.dark, .dark *))` w `index.css`, dzięki czemu klasy wariantowe `dark:` są teraz ściśle zsynchronizowane z klasą `.dark` na elemencie nadrzędnym `<html>`.
-- **Inteligentny Planer Celów (Skarbonka Pro)**: Wprowadzono automatyczne wyliczanie sugerowanej miesięcznej kwoty oszczędności na podstawie zdefiniowanego terminu celu (deadline) oraz brakującej kwoty. Cel zyskał etykiety czasowe (np. *"W tym miesiącu"*, *"Pozostało X miesięcy"*, *"Termin minął"*) dostosowujące się automatycznie. W modalu wpłaty dodano przyciski szybkiego autouzupełniania kwoty z nowym, bardziej intuicyjnym nazewnictwem (*"Sugerowana wpłata"* oraz *"Uzupełnij do celu"* zamiast nielogicznego *"Wpisz..."*) i pełnym wsparciem zawijania wierszy (flex-wrap).
-- **Zapobieganie Duplikatom w Smart CSV Import**: Dodano zupełnie nowy krok weryfikacji w kreatorze importu (Podgląd i Weryfikacja). Wyciąg bankowy jest teraz porównywany z dotychczasowymi operacjami w bazie, automatycznie identyfikując i wyłączając z importu duplikaty (na bazie daty, opisu, konta i kwoty). Dodano dedykowany baner informacyjny z ostrzeżeniem (`AlertTriangle`) o wykryciu duplikatów na etapie podglądu oraz raport o liczbie pominiętych rekordów na ekranie podsumowania importu. Zaimplementowano precyzyjne unieważnianie pamięci podręcznej React Query (`importTransactions`) przy mutacjach transakcji, gwarantując pełną reaktywność i wykrywanie duplikatów przy powtórnych importach w tej samej sesji. Użytkownik może ręcznie decydować o imporcie każdego wiersza, a także nadpisywać przypisane kategorie bez opuszczania widoku importu.
-- **Wydajność klasy Enterprise**: Całkowicie wyeliminowano problematyczny narzut pamięciowy i "dług technologiczny" związany ze stanem `useAllTransactions`. Od teraz zestawienie tysięcy transakcji jest sprawnie paginowane, filtrowane i sortowane wprost po stronie silnika bazy danych Rust. Frontend pobiera tylko to, co aktualnie wyświetla, oszczędzając do 95% wykorzystywanej pamięci RAM.
-- **Bezpieczeństwo Celów Oszczędnościowych**: Implementacja szczelnej relacyjności. Skasowanie konta z przypiętymi zasileniami celów bezpiecznie cofa wygenerowany postęp w wirtualnej skarbonce. Zmiana kwoty bądź typu transakcji powiązanej z celem automatycznie wyrównuje bilans oszczędności, eliminując problem rozjazdu i niespójności salda celu.
-- **Inteligentny "Catch-Up" płatności cyklicznych**: Uszczelniono mechanizm autozleceń. Jeżeli aplikacja nie była uruchamiana przez długi czas (np. wiele miesięcy), zaległe płatności cykliczne zostaną teraz iteracyjnie nadrobione w pętli. Wszystkie pominięte operacje zostaną uzupełnione miesiąc po miesiącu aż do bieżącego dnia.
-- **Wyeliminowanie krytycznych usterek ZBB**: Poddano restrykcyjnej refaktoryzacji kod języka Rust, wykluczając niebezpieczne polecenia `unwrap()` w kluczowym silniku algorytmów Zero-Based Budgeting. Zapobiega to ryzyku nagłego crasha ("panic") przy obsłudze ewentualnie wybrakowanych lub zdesynchronizowanych schematów danych SQLite.
+- **Wydajność** — paginacja, filtrowanie i sortowanie przeniesione na silnik SQLite; frontend
+  pobiera wyłącznie widoczne dane.
+- **Wykrywanie duplikatów w imporcie CSV** — nowy krok weryfikacji porównujący wyciąg z bazą.
+- **Nadrabianie zaległych płatności cyklicznych** po długiej nieobecności w aplikacji.
+- **Planer celów** — sugerowana miesięczna wpłata liczona z terminu i brakującej kwoty,
+  etykiety czasowe z poprawną polską odmianą.
+- Naprawa przełączania motywów w Tailwind v4 (`@custom-variant dark`).
+- Wyeliminowano `unwrap()` z silnika ZBB.
 
 ## [2.0.1]
 
-- **Poprawka wskaźnika "Do Rozdysponowania" (Ready to Assign)**: Naprawiono regresję w silniku ZBB w Rust, która powodowała wliczanie ujemnych sald kopert do sumy dostępnych środków, przez co przekroczenia budżetu sztucznie powiększały saldo RTA. Obecnie sumowane są wyłącznie dodatnie salda.
-- **Poprawka alertów przekroczenia budżetu (Dashboard)**: Zintegrowano powiadomienia o przekroczonych kategoriach na Dashboardzie bezpośrednio z obliczeniami silnika ZBB. Zapobiega to fałszywym ostrzeżeniom (np. gdy kategoria Jedzenie miała zrealizowane wydatki przekraczające limit bieżącego miesiąca, ale posiadała wystarczające środki przeniesione z poprzedniego miesiąca).
-- **Poprawka renderowania `0` przy kategoriach (Frontend)**: Zmieniono sposób sprawdzania wartości w tabeli budżetowej na froncie, wykluczając rzutowanie liczby 0 w strukturze DOM przez React.
-- **Poprawka błędu NOT NULL przy usuwaniu kategorii (Backend)**: Wyeliminowano krytyczny błąd bazy danych SQLite ujawniający się przy kasowaniu zdefiniowanych kategorii. Powiązane z usuniętą kategorią limity budżetowe są odpowiednio usuwane miast rzucać wywołanie błędem.
-- **Poprawa spójności przy usuwaniu kont**: Przy usuwaniu konta aplikacja teraz inteligentnie odwraca zrealizowane na zewnątrz przelewy, zachowując historyczną spójność salda. Zapobiega to powstawaniu osieroconych przelewów.
-- **Relacyjne powiązanie Celów i Transakcji**: Dodano klucz obcy (oraz nową migrację bazy - V5) wiążący generowane automatycznie wydatki z panelu celów. Modyfikacja kwoty lub skasowanie takiej transakcji na liście historii odpowiednio koryguje zaksięgowaną wpłatę na samym celu oszczędnościowym.
-- **Zwiększona niezawodność importu bazy**: Przebudowano funkcję wczytywania backupu SQLite na Windows. Dodano mechanizm omijający blokady plików na poziomie systemu (np. Windows Defender) i bezpieczne usuwanie plików transakcyjnych WAL/SHM.
+- Naprawa wskaźnika „Do Rozdysponowania" — ujemne salda kopert sztucznie powiększały RTA.
+- Alerty przekroczenia budżetu zintegrowane z silnikiem ZBB (koniec fałszywych ostrzeżeń).
+- Usuwanie konta odwraca przelewy zewnętrzne; usuwanie kategorii nie wywala się na `NOT NULL`.
+- Relacyjne powiązanie celów z transakcjami (migracja V5).
+- Odporny import bazy na Windows (blokady plików, czyszczenie WAL/SHM).
 
 ## [2.0.0]
 
-- **Interaktywna Analityka**: Wykres kołowy wydatków na Dashboardzie jest teraz w pełni interaktywny. Kliknięcie w segment wybranej kategorii przenosi bezpośrednio do przefiltrowanej historii transakcji dla tej właśnie kategorii.
-- **Interaktywny Cash-Flow**: Wykres słupkowy przychodów i wydatków (Cash-Flow) zyskał wsparcie dla nawigacji. Kliknięcie na wybrany słupek (np. wydatków w czerwcu 2026) automatycznie przekierowuje do zakładki transakcji z włączonymi, odpowiednimi filtrami.
-- **Szybki Podgląd Kont (Quick View)**: W zakładce "Konta i Portfele" wystarczy kliknąć dowolną kartę konta, aby wywołać błyskawiczny podgląd 10 ostatnich transakcji przypisanych do tego konta w formie eleganckiego modala.
-- **Inteligentne Tagi (Autocomplete)**: W globalnym formularzu szybkiej transakcji dodano asystenta podpowiadającego używane już tagi. Wystarczy wpisać znak `#`, a ukaże się podręczna, interaktywna lista dotychczasowych hashtagów gotowych do kliknięcia.
-- **Focus Trap & Dostępność (A11y)**: Zaimplementowano ulepszone zarządzanie focusem w modalach. Okna operacji wspierają teraz szybkie i bezpieczne zamykanie za pomocą klawisza `Escape` oraz dbają o zatrzymanie nawigacji klawiszowej wewnątrz formularza. Dodatkowo koryguje to bug związany z ujemnym saldem (overdraft warning jest nadrzędny).
-- **UX Fix (Dashboard)**: Kafelek "Do rozdysponowania" na pulpicie głównym prawidłowo przekierowuje teraz do zakładki Budżetów zamiast Celów. Kafelki "Przychody" oraz "Wydatki" filtrują operacje po kliknięciu.
-- **Rozszerzone Filtrowanie i Sortowanie z Custom UX**: Zastąpiono systemowe listy `<select>` w transakcjach estetycznymi dropdownami. Wyeliminowano przezroczystość/nakładanie się (w pełni nieprzezroczyste tła i precyzyjne warstwy z-index). Daty wyświetlane są w formacie przyjaznym użytkownikowi (np. "Czerwiec 2026"). Dodano szybki przycisk czyszczenia aktywnych filtrów, a etykietę "Wszystkie okresy" zoptymalizowano do "ALL" wraz z delikatnym zwężeniem pola wyszukiwarki oraz przycisku filtra.
-- **Sprytny Eksport**: Opcja "Eksportuj CSV" zaciąga teraz odfiltrowany zakres transakcji na ekranie, umożliwiając eksport konkretnych miesięcy, a nie całej bazy danych bez wyjątku.
-- **Usprawnienia Modala Transakcji**: Globalny modal zyskał pełną obsługę typu "Przelew" wraz z dynamicznym ukrywaniem wymogu przypisania kategorii (przelewy i wpłaty na cele nie potrzebują kategorii). Dodano również inline'owy, błyskawiczny skrót tworzenia nowej kategorii (`+ Nowa kategoria`) podczas wpisywania wydatków.
-- **Status Subskrypcji**: Dodano wizualne wskaźniki opłacenia subskrypcji w bieżącym miesiącu. Na Dashboardzie widoczny jest licznik zaksięgowanych zleceń cyklicznych, a w widoku subskrypcji każda karta posiada teraz dedykowany status "Zaksięgowano" lub "Oczekuje".
-- **Sortowanie Budżetów i Przyklejone Nagłówki**: Wprowadzono pełne interaktywne sortowanie tabeli budżetowej (alfabetycznie po nazwie kategorii oraz po dowolnych kwotach). Dodatkowo nagłówki tabeli zostały przypięte (`sticky thead`), dzięki czemu nie znikają podczas scrollowania listy.
-- **Wizualna Nagroda za Cele**: Skarbonki, które osiągnęły 100% celu oszczędnościowego, zyskują teraz estetyczny złoty motyw (ramkę o ciepłym odcieniu, ikonę trofeum, odznakę "Sukces! 🏆" oraz złoty przycisk z ikoną pucharu). Poprawiono kontrast złotych elementów w trybie jasnym.
-- **Interaktywność Ostatnich Transakcji**: Kliknięcie w dowolny wiersz na liście ostatnich transakcji na Dashboardzie przenosi teraz bezpośrednio do historii transakcji z automatycznie włączonym wyszukiwaniem po opisie lub kategorii.
-- **Edycja Kategorii**: Dodano pełne wsparcie dla edytowania istniejących już kategorii w Ustawieniach (zmiana nazwy, typu i koloru etykiety) wraz z zapisem w bazie danych SQLite i reaktywnym odświeżaniem widoku w całej aplikacji.
-- **Kontrast i UX Raportów**: Zwiększono kontrast przycisków okresu (1M, 3M itp.) w trybie ciemnym oraz poprawiono widoczność filtrów kont, wprowadzając kontrastujące tła dla zaznaczonych i nieaktywnych filtrów.
-- **Poprawki Tabeli Budżetów**: Zlikwidowano prześwitywanie wierszy pod nagłówkiem (dodano `border-collapse`, twarde tło na `thead`/`tr` i `th` z `var(--color-card)`) oraz wprowadzono dynamiczną wysokość listy dopasowaną do wysokości ekranu (`max-h-[calc(100vh-340px)]`), co optymalizuje przestrzeń na dużych i małych monitorach.
+- **Zero-Based Budgeting** — koperty, carry-over, wskaźnik „Do Rozdysponowania", edycja kwot
+  bezpośrednio w tabeli.
+- **Pasywne wykrywanie subskrypcji** na podstawie analizy historii wydatków.
+- **Import CSV z banku** — mapowanie kolumn, interaktywna kategoryzacja, pre-kategoryzacja z historii.
+- **Raporty** — cash-flow, trend salda, struktura wydatków; klikalne wykresy z przejściem
+  do odfiltrowanej historii.
+- **Tagi** (`#hashtagi`) z autouzupełnianiem i wyszukiwaniem.
+- Pełna edycja kont, celów i subskrypcji; edycja i usuwanie transakcji wprost z listy.
+- Migracja UI na TanStack Query; twarde migracje bazy (`rusqlite_migration`); testy w Rust
+  na bazie in-memory.
+- Migracja identyfikatorów z `i32` na `i64`.
 
-## [1.0.6]
+## [1.0.x]
 
-- **Pełna Optymalizacja ZBB (Zero-Based Budgeting)**: Główny mechanizm obliczania dostępnych środków został przepisany i przeniesiony do szybkiego środowiska Rust, poprawiając płynność w zakładce Budżet.
-- **Paginacja Historii Transakcji**: Zakładka Transakcje obsługuje teraz paginację, dzięki czemu ładowanie tysięcy operacji stało się błyskawiczne (nawet na starszym sprzęcie) a przewijanie jest niezwykle płynne dzięki `InfiniteQuery` na froncie.
-- **Rozszerzenie Zasięgu ID (i64)**: Bezpieczeństwo identyfikatorów zostało zwiększone ze standardowego 32-bitowego Integera na `i64` w kluczowych tabelach SQLite (Tagi, Transakcje, Cykliczne Operacje, Konta), zabezpieczając przed limitami i problemami ze złączeniami w skali długoterminowej.
-- **Polerowanie UX**: Usunięto niepożądane pionowe paski przewijania z boku okna poprawiając styl tagu głównego (`overflow-x-hidden`).
-- **Poprawa Widoczności i Interakcji Ikon Edycji**: Skorygowano zachowanie ikon szybkiej edycji/usuwania w historii transakcji – wyłączono efekt powiększania (`hover:scale-110`), aby zapobiec ucinaniu ich krawędzi, oraz zmieniono kolor podświetlenia w trybie jasnym na ciemniejszy grafit (`hover:bg-slate-800 hover:text-slate-100`). Wprowadzono także brakujące, dynamiczne animacje podświetleń i powiększenia (`hover:scale-110`) dla ikon na kartach Kont i Portfeli, ujednolicając doznania wizualne w całej aplikacji.
+- Moduł raportowy z filtrami zakresu dat i kont oraz wskaźnikami KPI (Net Flow, Savings Rate).
+- Ostrzeżenia przed zejściem na debet.
+- PIN hashowany SHA-256 z solą, blokada przed atakiem siłowym, Content Security Policy.
+- Paginacja historii transakcji i wirtualizacja listy (`@tanstack/react-virtual`).
+- `ErrorBoundary` dla nieprzewidzianych błędów aplikacji.
 
-## [1.0.5]
+## [0.1.x] — Fundament
 
-- **Pełna Edycja Elementów**: Wprowadzono możliwość edytowania już istniejących Kont, Portfeli, Celów oszczędnościowych oraz Płatności Cyklicznych (Subskrypcji). Modale edycji ładują aktualne dane pozwalając na szybką korektę sald i parametrów.
-- **Interaktywny Dashboard**: Kafelki podsumowujące na ekranie głównym (Dashboard) stały się interaktywne. Kliknięcie kafelków takich jak "Zarządzaj", "Oszczędności", "Przychody" czy "Wydatki" przeniesie Cię do przypisanej zakładki.
-- **Dopracowane UX (Konta)**: Skorygowano umiejscowienie akcji na kartach w widoku Kont i Portfeli. Ikony edycji oraz kosza umieszczono estetycznie w prawym górnym rogu z odpowiednim powiększeniem obszaru uderzenia, eliminując zniekształcenia zawartości karty po najechaniu myszką.
-- **Zabezpieczenie przed ujemnym saldem (Overdraft)**: Przy operacjach szybkiego wydatku oraz przy zasilaniu celów oszczędnościowych wprowadzono podwójne sprawdzanie i specjalny alert z ostrzeżeniem przed przypadkowym zejściem w debet na wskazanym koncie.
-- **Krytyczne poprawki (Audyt 1.0.5)**:
-  - Usunięto problem "martwego kodu" i błędnego przeliczania dat w operacjach cyklicznych.
-  - Wyeliminowano ryzyko zawieszania się wątków SQLite (eliminacja `.lock().unwrap()`), wprowadzając bezpieczny zwrot błędów na frontend.
-  - Wdrożono pełne, bezpieczne transakcje przy twardym resecie, eksportowaniu bazy i kasowaniu kont (czyszcząc powiązane tagi i subskrypcje kaskadowo).
-  - Wskaźnik "Do Rozdysponowania" (ZBB) uwzględnia od teraz wydatki wykraczające poza koperty (długi), prawidłowo redukując całkowite dostępne saldo.
-  - Rozszerzono bezpieczeństwo PIN o silne kryptograficzne hashowanie SHA-256 z migracją wsteczną ("w locie") oraz wdrożono blokadę przed próbami ataku brute-force w LockScreen.
-  - Dodano Content Security Policy do plików konfiguracyjnych Tauri dla większego bezpieczeństwa instancji webview.
-  - Oczyszczono zbędne zależności z package.json i dodano globalną obsługę nieprzewidzianych błędów aplikacji w formie estetycznego ekranu `ErrorBoundary`.
-  - W module Importu CSV dodano dynamiczne filtrowanie kategorii przy procesie mapowania (oddzielenie przychodów od wydatków), eliminując chaos w dropdownach.
-  - Do fabrycznej listy domyślnych kategorii dodano "Poduszka finansowa" dla fanów Zero-Based Budgeting.
-
-## [1.0.2]
-
-### Faza 16: Zero-Based Budgeting (ZBB / Metoda Kopertowa)
-
-- **Przebudowa Budżetów**: Aplikacja operuje teraz na prawdziwych dostępnych środkach (Kopertach) zamiast tylko sztucznych limitów.
-- **Do Rozdysponowania**: Nowy wskaźnik ("Ready to Assign") na górze strony Budżety i na Dashboardzie obliczany dynamicznie jako: `Suma Kont - Suma Dostępnych Środków w Kategoriach`.
-- **Carry-over (Przenoszenie)**: Środki niewykorzystane w poprzednich miesiącach automatycznie zasilają dostępne saldo w bieżącym miesiącu. Przekroczenia budżetu (wartości ujemne) są surowo odliczane od puli "Do Rozdysponowania", wymuszając dyscyplinę.
-- **Inteligentne Wykrywanie Subskrypcji**: Aplikacja automatycznie skanuje wydatki z ostatnich 90 dni i jeżeli wykryje powtarzalne płatności (ten sam tytuł, zbliżona kwota, interwał ok. miesiąca), zaproponuje dodanie ich do subskrypcji. Posiada trwałą opcję ignorowania (`Nie pokazuj ponownie`).
-- **Dynamiczna Typografia**: Ogromne kwoty (miliony) na karcie Dashboard automatycznie zmniejszają czcionkę zamiast brzydko się uciąć (truncate).
-- **Import Wyciągów Bankowych (CSV)**: Dodano nowy, pełnoekranowy moduł Importu (Drag & Drop) potrafiący "w locie" analizować i wczytywać pliki eksportu z absolutnie każdego banku w Polsce. Wystarczy rzucić plik i przypisać zaledwie 3 kolumny (Data, Tytuł, Kwota) z rozwijanych list. Moduł został wzbogacony o inteligentne, interaktywne mapowanie unikalnych kategorii bankowych do kategorii lokalnych z funkcją autouzupełniania opartą o proste słowa kluczowe (np. "sport", "jedzenie", "elektronika").
-- **Inteligentna Pre-Kategoryzacja**: Algorytm analizuje importowane wyciągi z banków na żywo. Jeśli zidentyfikuje kategorię transakcji (np. "Jedzenie"), która już wcześniej występowała w Twojej bazie wraz z przypisaną kategorią, automatycznie załączy tę kategorię do tysięcy nowych transakcji w mgnieniu oka.
-- **Błyskawiczna Edycja i Usuwanie (Inline)**: Zastąpienie starych modali aktywnymi ikonami (Edytuj / Usuń) wyłaniającymi się elegancko po najechaniu myszką na wiersz w historii transakcji. Edycja inteligentnie wczytuje istniejący globalny formularz szybkiej operacji z wypełnionymi już danymi, pozwalając na szybką poprawę tytułu, kwoty czy kategorii z odpowiednim przeliczeniem sald (zabezpieczone silnikiem Rust).
-- **Poprawa Widoczności Ikon Akcji w Transakcjach**: Ikony edycji i usuwania wysuwają się teraz płynnie z lewej strony kwoty po najechaniu na wiersz, pozostawiając kwotę w pełni widoczną (brak ukrywania kwoty jak dotychczas).
-- **Raport Finałowy i Poprawki Audytowe**: Optymalizacja SQLite (indeksy), wyeliminowanie wąskiego gardła wydajności (N+1 queries dla tagów), bezpieczniejsze typowanie i wdrożenie wirtualizacji tabel na frontendzie (`@tanstack/react-virtual`). Aplikacja gotowa na miliony wpisów.
-- **Responsywne Filtry Raportów**: Filtry okresów i kont w zakładce Raporty płynnie załamują się do nowego wiersza (flex wrap) na wąskich ekranach zamiast generować niechciane suwaki (scrollbary), podnosząc użyteczność.
-- **Solidne Bezpieczeństwo i Testy**: Dodanie weryfikacji wartości transakcji przed zapisem do bazy, naprawa zakresu testów integracyjnych w Ruscie.
-- Wypolerowanie interfejsu "Raporty" do standardu Pro.
-- Przygotowanie kompletnego instalatora pod Windows / Linux / MacOS przez Github Actions.
-- **Odświeżenie Interfejsu Kart (Dashboard)**: Poprawiono spójność wizualną (glassmorphism) oraz prawidłowe zachowanie ikon w trybie ciemnym dzięki rezygnacji ze skomplikowanego dziedziczenia CSS.
-- **Natywne Formularze (Dark Mode)**: Rozwiązano problem białego tła w systemowych listach rozwijanych (`<select>`) w Windows, opierając się w 100% na OS-level Dark Mode.
-- **Testowe dane**: Generator z `Onboarding` generuje teraz 7 miesięcy zróżnicowanej historii z transakcjami cyklicznymi (Czynsz, Prąd, Netflix), co ułatwia testowanie algorytmów.
-- **Przyklejone Filtry i Wyszukiwarka**: Filtry oraz pasek wyszukiwania zostały odseparowane od obszaru przewijania i umieszczone w stałym nagłówku. Podczas scrollowania pozostają zawsze widoczne na górze okna, natomiast przewijaniu podlega wyłącznie zwirtualizowana lista transakcji, co znacząco poprawia wygodę pracy z dużą liczbą wpisów.
-- **Globalny Ciemny Motyw dla List Rozwijanych**: Dodano globalne reguły CSS sprawiające, że wszystkie rozwijane listy (`<select>` oraz `<option>`) w całej aplikacji automatycznie respektują aktywny motyw kolorystyczny. Obejmuje to modale, ustawienia, raporty i formularze, zapewniając spójny wygląd zarówno w trybie jasnym, jak i ciemnym.
-- **Spójność Wizualna Formularzy**: Wszystkie komponenty wyboru korzystają teraz z globalnych zmiennych motywu (`--color-background` oraz `--color-foreground`), eliminując problem jasnych elementów pojawiających się w ciemnym interfejsie i podnosząc ogólną jakość oraz profesjonalizm interfejsu użytkownika.
-
-## [1.0.1] - 2026-06-06
-
-- **Profesjonalny Moduł Raportowy (Pro Analytics)**: Prawdziwe centrum dowodzenia z globalnymi filtrami zakresu dat (3M, 6M, YTD) oraz inteligentnym multiselectem kont. Wprowadzono 4 "szklane" karty wskaźników (KPI), w tym "Net Flow" oraz precyzyjnie liczony "Savings Rate". Posiada ulepszone wykresy zespolone (Composed Chart) i moduł obnażający 5 największych pożeraczy budżetu oraz 5 najdroższych transakcji per okres. Moduł całkowicie ignoruje sztuczne "Transfery" między swoimi kontami, dzięki czemu analityka nigdy nie przekłamuje danych!
-- **Import Wyciągów Bankowych (CSV)**: Dodano nowy, pełnoekranowy moduł Importu (Drag & Drop) potrafiący "w locie" analizować i wczytywać pliki eksportu z absolutnie każdego banku w Polsce. Wystarczy rzucić plik i przypisać zaledwie 3 kolumny do wbudowanego, w pełni bezstanowego na backendzie parsera (wszystko mieli przeglądarka!). Zabezpieczono kodowanie znaków dla plików z polskich banków.
-- **Błyskawiczna Edycja**: Zastąpienie Modali edycyjnych aktywnymi polami `Input` bezpośrenio w tabeli, dla błyskawicznego planowania całego miesiąca. Pola wejściowe zostały wyraźnie ostylowane z widocznym symbolem `zł` i responsywnym zachowaniem. Zapis następuje po kliknięciu klawisza `Enter` lub po utracie focusu (kliknięcie w tło).
-- **Automatyczne przeliczanie Budżetów**: Pasek postępu podpowiada teraz 3 kolory - zielony (poniżej połowy), żółty (powyżej 80%) i czerwony (powyżej 100%). Uspójniono wszystkie fonty w sekcji raportowej.
-- **System Celów (Skarbonek)**: Wdrożono całkowicie oddzielny system "Skarbonek", na które możemy przelewać wirtualne lub realne fundusze, a system sam dba o synchronizację transakcji w historii z typem "Oszczędności".
-- **Optymalizacja Rust**: Napisano zapytania transakcyjne na bazie SQLite wspierane przez Tauri, minimalizujące wycieki pamięci do 0.01% w testach.
-
-## [0.1.1] - Moduł Tagów i Migracje (Faza 14 & 15) - 2026-06-06
-
-### Added & Changed (Faza 15 - Wersja 2.0: Migracje SQL i System Tagów)
-
-- **Twarde Migracje Bazy Danych:** Zastąpiono jednorazowy skrypt inicjalizacyjny solidnym systemem migracji opartym o bibliotekę `rusqlite_migration`. Od teraz każda nowa zmiana struktury bazy (np. nowe kolumny, tabele) u użytkowników odbywa się kaskadowo (od V1 do V2 itd.), zabezpieczając dane przed utratą przy aktualizacjach aplikacji.
-- **System Tagów (Hashtagi):** Wprowadzono relacyjną tabelę Tagów po stronie bazy (relacja Wiele-do-Wielu z tabelą transakcji). W module "Szybkiej Transakcji" (Ctrl+Space) dodano obsługę przypisywania tagów za pomocą spacji lub przecinka. Tagi wyświetlają się w przejrzysty, twitterowy sposób (`#WAKACJE`) bezpośrednio pod nazwą operacji.
-- **Rozszerzone Wyszukiwanie:** Główna wyszukiwarka w zakładce Transakcje inteligentnie parsuje teraz tagi. Wpisanie do paska wyszukiwania `#paliwo` lub po prostu `paliwo` bezbłędnie przefiltruje tysiące wpisów w mgnieniu oka, łącząc to z filtrowaniem po kategorii, opisie i kwocie.
-
-### Added & Changed (Faza 14 - Wersja 2.0: Architektura & React Query)
-
-- **Kompletna Migracja na React Query:** Zastąpiono autorski system zarządzania stanem (oparty na `Zustand` i ręcznych inwalidacjach) dojrzałym ekosystemem `@tanstack/react-query`. Czasochłonne błędy `Race Conditions` (wyścigi asynchroniczne) należą już do przeszłości.
-- **Odświeżanie w Czasie Rzeczywistym:** Dodawanie, edycja oraz usuwanie kont, celów, transakcji i subskrypcji korzysta teraz z inteligentnego inwalidowania pamięci podręcznej (np. po dodaniu kategorii, lista wydatków odświeża się natychmiast, bez konieczności przeładowywania aplikacji).
-- **Bezpieczeństwo w Rust (In-Memory Testing):** Wprowadzono do backendu hermetyczne środowisko testowe w pamięci RAM (`:memory:`) dla bazy danych SQLite, które gwarantuje bezpieczeństwo kompilacji operacji bankowych w CI/CD przed każdym wdrożeniem, zapobiegając usterkom w plikach użytkowników na systemach Windows.
-- **Czystość Kodu:** Usunięto setki linii "długu technologicznego" i przestarzałego cache'a z `useFinanceStore`, przerzucając ciężar synchronizacji z IPC na bibliotekę zewnętrzną. Całe API otrzymało potężną, modularną abstrakcję w postaci hooków `useAccounts`, `useTransactions`, `useBudgets` w oddzielnym pliku `queries.ts`.
-- **Stabilność Transakcyjna Modalów:** Oparto Modale Szybkich Operacji o bezpieczne Mutacje (`mutateAsync`) i w pełni otypowane payloady, usuwając resztki starych wartości pustych (`null` na korzyść `undefined`).
-
-## [0.1.0] - 2026-06-05
-
-### Added & Fixed (Faza 13 - Ostateczny Audyt i V2 Foundation)
-
-- **Bogaty Generator Danych:** Całkowicie przebudowano przycisk "Wygeneruj Przykładowe Dane". Skrypt wstrzykuje teraz do bazy realistyczną, 4-miesięczną historię operacji, automatycznie tworzy cykliczne subskrypcje, uzupełnia budżety na bieżący miesiąc oraz cele oszczędnościowe z postępem.
-- **Premium UX w Ustawieniach:** Zunifikowano interfejs wszystkich przycisków funkcyjnych (np. "Wyczyść dane", "Eksport bazy") dopasowując je do najwyższych standardów wizualnych V2 (zaokrąglenia XL, obramowania typu Glass, spójne kolory i przejścia).
-- **V2 Roadmap:** Utworzono dokumentację i plan migracji do wersji V2, kładący nacisk na pozbycie się długu technologicznego, usunięcie własnej implementacji ładowania stanu na rzecz `TanStack Query` oraz wdrożenie twardych migracji SQL i testów jednostkowych w backendzie Rust.
-
-### Added & Fixed (Faza 11 - Architektura & UX)
-
-- **Migracja Eksportu na Binaria:** Porzucono tekstowy format `.json` dla backupów z uwagi na potencjalne błędy schematów. Eksport i import bezpośrednio operują na pliku `.db` z wykorzystaniem backendu w Rust, pozwalając na pełne zachowanie struktury.
-- **Bezpieczny Import Bazy:** System bezpiecznie zwalnia uchwyt bazy danych SQLite z wykorzystaniem bazy In-Memory przed skopiowaniem pliku `.db`, chroniąc go przed błędami blokady ("File in Use").
-- **Rozszerzenie Prywatności:** Wartości wyświetlane na wykresach osi i w tooltipach ("Spending Pie Chart", "Balance Trend Chart") są od teraz automatycznie maskowane po przełączeniu aplikacji w Tryb Prywatności (`privacyMode`).
-- **Skrót Transakcji:** W celu uniknięcia kolizji skrótu `Ctrl+N` służącego za tworzenie nowego okna w niektórych systemach zdefiniowano nowy globalny skrót na dodanie transakcji - `Ctrl+Space`.
-- **Wydajność Ekranu Transakcji:** Wprowadzono listę z paginacją (Załaduj Więcej) dla setek rekordów, by wyeliminować zawieszenia podczas wchodzenia w zakładkę z historią operacji.
-- **Odświeżenie Ikony Aplikacji:** Przełączono klasyczną ikonę Tauri na ikonę wykorzystującą fioletowy gradient i geometryczne linie zaczerpnięte prosto z UI aplikacji.
-- **Refaktoryzacja Systemu (TypeScript & Zustand):** Wyeliminowano przestarzałe typy `any` dla obciążeń API, wprowadzając `Omit<...>` dla precyzji w Rust. Mechanika przeładowywania została gruntownie przebudowana z wykorzystaniem znacznika zdezaktualizowania pamięci (`isDataLoaded`), wymuszając jedno globalne źródło prawdy bez gubienia odświeżeń w UI po zapisie bazy.
-- **Rozbudowa Interfejsu (Faza Premium UI):**
-  - **Motyw Ciemny (Głęboki Grafit):** Całkowicie przebudowano paletę dark mode pozbywając się niebieskawych odcieni na rzecz głębokich, dojrzałych szarości w stylu macOS/OLED. Zoptymalizowano główny kolor (Indigo-400) dla lepszego kontrastu w tym trybie.
-  - **Grafiki Wektorowe w Tle:** Karty Dashboardu (Wydatki, Przychody, Tabela Transakcji) zyskały ogromne, półprzezroczyste wektorowe ikony w tle (Lucide) z dedykowanymi gradientami. Znacząco podnosi to jakość "premium" interfejsu przy zerowym wpływie na wydajność i rozmiar aplikacji.
-  - **Spójność Układu (Layout):** Wszystkie strony ujednolicono w obszernym i responsywnym kontenerze (`max-w-7xl mx-auto`), dzięki czemu zawartość jest idealnie wyśrodkowana na bardzo dużych monitorach.
-  - **Druk do PDF:** Wektorowe tła i zbędne gradienty są od teraz dynamicznie ukrywane podczas generowania raportów i eksportu PDF (`print:hidden`), zapewniając profesjonalny, biurowy wygląd dokumentu z białym tłem.
-- **Błąd Przezroczystości Tailwind v4:** Naprawiono błąd, przez który modale (Szybka Operacja, Ustawienia) błędnie zaczytywały systemowy styl `prefers-color-scheme: dark` dla przezroczystości zamiast twardo wymuszać ten zadeklarowany przez użytkownika w Ustawieniach. Zastąpiono wymuszenia klas wariantami korzystającymi bezpośrednio z `var(--color-card)`.
-
-### Added (Faza 8 - UX & CI/CD)
-
-- **Globalne skróty klawiaturowe:** `Ctrl+N` / `Cmd+N` wywołuje teraz uniwersalne okno dodawania transakcji z każdego miejsca w aplikacji.
-- **Automatyzacja Wydań (CI/CD):** Dodano plik konfiguracyjny GitHub Actions (`release.yml`), który kompiluje natywne instalatory (.exe, .dmg, .deb) dla Windows, macOS i Linux po każdym wydaniu nowej wersji.
-- **Klawiatura w LockScreen:** PIN można teraz wprowadzać z poziomu klawiatury fizycznej i zatwierdzać Enterem.
-
-### Fixed
-
-- **Błąd Znikających Pasków (Tailwind v4):** Rozwiązano problem powodujący znikanie głównego wypełnienia pasków postępu w zakładce Budżet. Przejście ze sztywnych klas Tailwind na system styli "inline" oparty o dynamiczne kolory kategorii zagwarantowało niezawodność renderowania w obu trybach kolorystycznych.
-- **Twardy Reset i Baza:** Twardy reset usuwa teraz wszystkie powiązane dane (subskrypcje, konta) bez rzucania wyjątkami (naprawa kaskadowa bazy danych).
-- **Import/Eksport Plików (Tauri v2):** Dodano szczegółowe uprawnienia `fs:allow-read-text-file` i `fs:allow-write-text-file` odblokowujące rygorystyczne zasady bezpieczeństwa najnowszej wersji Tauri.
-- **Ikony Usuwania (Tła):** Usunięto błąd narzucający sztywne tło (`bg-white/80`) pod ikonami usuwania na kartach Kont oraz Celów, ujednolicając to z systemem interakcji na zasadzie podświetleń (hover) z resztą interfejsu.
-
-### Changed
-
-- **Przebudowa Kont i Portfeli:** Zakładka "Konta i Portfele" została wizualnie dopasowana do nowej wizji projektowej (Karty Premium). Słabo widoczne gradienty zamieniono na solidne tła z gigantycznymi, wtopionymi w strukturę znakami wodnymi ikon portfeli, z zachowaniem płynnych animacji przy najechaniu (hover).
-- **Wyszukiwanie i Sortowanie Transakcji:** Tabela transakcji zyskała potężny, błyskawiczny moduł wyszukiwania tekstowego na żywo oraz pełnoprawne menu z opcjami sortowania (np. kwota malejąco, najstarsze, itp.) obsługiwanymi bezpośrednio w pamięci aplikacji (`useMemo`).
-- **Dynamiczne Paski Budżetów:** Paski postępu w widoku Budżetów adaptują teraz swój główny kolor bezpośrednio od przypisanej kategorii wydatku (np. Złoty dla Rachunków, Zielony dla Jedzenia).
-- **Ekran Powitalny:** Naprawiono błąd blokujący przeładowanie aplikacji po udanym imporcie danych (brak re-fetchu w komponencie `Onboarding`).
-- **Formatowanie kwot:** Długie kwoty sald powyżej 1 miliona na Dashboardzie posiadają formatowanie oddzielające spacjami i responsywne łamanie, aby nie wychodziły poza obszar kart.
-- **Wygląd i UX:** Zmieniono nieczytelny glassmorphism w jasnym trybie kart, zamieniono natywne alerty JavaScript na interaktywne okna w całej aplikacji oraz zaktualizowano ikonę i logo aplikacji z wykorzystaniem najnowszych standardów projektowych 2026.
-- **Tworzenie Kategorii:** Naprawiono błąd w silniku Rust, w którym z powodu automatycznego wycinania podkreślników (`type_`) payload wysyłany do Tauri był odrzucany.
-- **Migracja Kolorów Kategorii:** Domyślne kategorie startowe otrzymały precyzyjnie dopasowane kolory HEX, zapewniając spójność wizualną pomiędzy wykresem kołowym, tabelami a stroną ustawień.
-- Wprowadzono walidację ujemnego salda podczas korzystania z nowego, globalnego okna szybkiej transakcji.
-
-## [Wcześniejsze wersje / Zakończone Fazy]
-
-### Dodano (Faza 7 - Bezpieczeństwo i Prywatność)
-
-- **LockScreen z kodem PIN:** Zabezpieczenie aplikacji przy włączaniu, które blokuje dostęp osobom niepowołanym.
-- **Tryb Prywatności (Privacy Mode):** Możliwość ukrywania i cenzurowania wartości na ekranie (ikonka oka) w celu ochrony przed wzrokiem ciekawskich. Rozszerzono działanie na Dashboard, transakcje oraz konta.
-- **Edytor Kategorii:** Zaawansowany panel w Ustawieniach do zarządzania, dodawania, usuwania i zmiany kolorów kategorii, by personalizować bazę wydatków.
-
-### Dodano (Faza 6 - Ustawienia)
-
-- Pełny Import oraz Eksport bazy danych w formacie `.json`.
-- Funkcja bezpiecznego przywracania fabrycznego (Factory Reset).
-
-### Dodano (Faza 5 - Automatyzacja)
-
-- System subskrypcji i powtarzalnych płatności cyklicznych.
-- Automatyczne księgowanie wpłat po zalogowaniu na podstawie dat.
-
-### Dodano (Faza 4 - Analityka)
-
-- Interaktywny Dashboard (Wykresy: Spending Pie Chart, Balance Trend Chart).
-- Moduł eksportu aktualnie odfiltrowanych transakcji do pliku CSV.
-
-### Dodano (Faza 3 - Zarządzanie celem)
-
-- Inteligentne Budżety z kolorowymi powiadomieniami o przekroczeniach.
-- System wirtualnych skarbonek (Celów oszczędnościowych) z historią wpłat.
-
-### Dodano (Faza 1 & 2 - Rdzeń)
-
-- **Core:** Tauri 2 (Rust) + React + Vite + Tailwind CSS v4.
-- Tworzenie i przełączanie kont bankowych.
-- Księgowanie przychodów, wydatków i transferów między własnymi kontami.
-- Szybka lokalna baza danych SQLite (`budzet.db`) w AppData.
+- Tauri 2 (Rust) + React + Vite + Tailwind CSS v4, baza SQLite w `%APPDATA%`.
+- Konta, transakcje i przelewy wewnętrzne; budżety miesięczne; cele oszczędnościowe.
+- Subskrypcje z automatycznym księgowaniem; Dashboard z wykresami; eksport CSV.
+- Blokada PIN, tryb prywatności, edytor kategorii, eksport/import bazy, reset fabryczny.
+- Automatyzacja wydań przez GitHub Actions (.exe / .dmg / .deb).

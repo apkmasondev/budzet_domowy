@@ -1,8 +1,7 @@
 import { useState, useRef, useMemo } from "react";
 import Papa from "papaparse";
-import { useAccounts, useBulkAddTransactions, useCategories } from "../lib/queries";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "../lib/api";
+import { useAccounts, useBulkAddTransactions, useCategories, useAccountTransactions } from "../lib/queries";
+import { useDialogStore } from "../store/useDialogStore";
 import { FileUp, CheckCircle, AlertTriangle, ArrowRight, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -22,13 +21,11 @@ export default function Import() {
   const { data: accounts = [] } = useAccounts();
   const [accountId, setAccountId] = useState<string>("");
 
-  const { data: transactions = [] } = useQuery({
-    queryKey: ["importTransactions", accountId],
-    queryFn: () => accountId ? api.getTransactions(1000000, 0, undefined, undefined, undefined, undefined, parseInt(accountId)) : Promise.resolve([]),
-    enabled: !!accountId
-  });
+  // Współdzielony hook z podglądem konta — jeden klucz cache, jedna ścieżka unieważniania.
+  const { data: transactions = [] } = useAccountTransactions(accountId ? parseInt(accountId) : null);
   const { data: categories = [] } = useCategories();
   const bulkAddMutation = useBulkAddTransactions();
+  const { showAlert } = useDialogStore();
 
   const [file, setFile] = useState<File | null>(null);
   const [csvData, setCsvData] = useState<Record<string, string>[]>([]);
@@ -55,13 +52,38 @@ export default function Import() {
     if (selectedFile) processFile(selectedFile);
   };
 
+  /** Wraca do ekranu wyboru pliku i czyści cały stan kreatora. */
+  const resetImport = () => {
+    setFile(null);
+    setCsvData([]);
+    setHeaders([]);
+    setDateColumn("");
+    setAmountColumn("");
+    setDescColumn("");
+    setCatColumn("");
+    setParsedTransactions([]);
+    setUniqueBankCategories([]);
+    setCategoryMap({});
+    setStep(1);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const processFile = (file: File) => {
     setFile(file);
     const reader = new FileReader();
-    
+
+    reader.onerror = () => {
+      resetImport();
+      showAlert("Nie udało się odczytać pliku", "Wystąpił błąd podczas wczytywania pliku z dysku.");
+    };
+
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      if (!text) return;
+      if (!text) {
+        resetImport();
+        showAlert("Pusty plik", "Wskazany plik nie zawiera żadnych danych.");
+        return;
+      }
 
       const lines = text.split(/\r?\n/);
       let headerRowIdx = 0;
@@ -86,11 +108,24 @@ export default function Import() {
         delimiter: detectedDelimiter,
         skipEmptyLines: true,
         complete: (results) => {
-          if (results.data && results.data.length > 0) {
+          const cols = results.data.length > 0 ? Object.keys(results.data[0] as object) : [];
+
+          // Wcześniej `setFile` już się wykonało, a `setStep(2)` nie — komponent
+          // renderował wtedy `null` i użytkownik zostawał na pustej stronie
+          // bez komunikatu i bez możliwości wybrania innego pliku.
+          if (results.data.length === 0 || cols.length < 2) {
+            resetImport();
+            showAlert(
+              "Nie udało się odczytać pliku",
+              "Nie znaleziono w pliku wiersza nagłówków ani danych. Upewnij się, że to wyciąg CSV z banku (separator ',' lub ';')."
+            );
+            return;
+          }
+
+          {
             setCsvData(results.data as Record<string, string>[]);
-            const cols = Object.keys(results.data[0] as object);
             setHeaders(cols);
-            
+
             const dateGuess = cols.find(c => c.toLowerCase().includes("data") || c.toLowerCase().includes("date"));
             const amountGuess = cols.find(c => c.toLowerCase().includes("kwota") || c.toLowerCase().includes("amount") || c.toLowerCase().includes("saldo"));
             const descGuess = cols.find(c => c.toLowerCase().includes("tytuł") || c.toLowerCase().includes("opis") || c.toLowerCase().includes("title") || c.toLowerCase().includes("description"));
@@ -300,24 +335,26 @@ export default function Import() {
         category_id: t.category_id,
         amount: t.amount,
         type: t.type,
-        description: t.description || null,
+        description: t.description || undefined,
         date: t.date,
         transfer_to_id: undefined,
-        tags: []
+        tags: undefined
       }));
 
     if (selectedPayloads.length === 0) {
-      alert("Proszę zaznaczyć przynajmniej jedną transakcję do importu.");
+      showAlert("Nic nie zaznaczono", "Proszę zaznaczyć przynajmniej jedną transakcję do importu.");
       return;
     }
 
     setIsImporting(true);
     try {
-      await bulkAddMutation.mutateAsync(selectedPayloads as any);
-      setImportResult({ success: selectedPayloads.length, total: csvData.length });
-    } catch (e) {
-      console.error(e);
-      alert("Błąd podczas importowania.");
+      // Backend zwraca liczbę FAKTYCZNIE dodanych wpisów (odrzuca duplikaty, których
+      // nie wykrył podgląd). Wcześniej ekran podsumowania raportował liczbę zaznaczonych,
+      // co potrafiło zawyżać wynik.
+      const inserted = await bulkAddMutation.mutateAsync(selectedPayloads);
+      setImportResult({ success: inserted, total: csvData.length });
+    } catch (e: any) {
+      showAlert("Błąd podczas importowania", String(e));
     } finally {
       setIsImporting(false);
     }
@@ -340,12 +377,20 @@ export default function Import() {
           <br/>
           Zastosowano automatyczną kategoryzację na podstawie Twojej historii.
         </p>
-        <button
-          onClick={() => navigate("/transactions")}
-          className="mt-8 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
-        >
-          Przejdź do Historii
-        </button>
+        <div className="flex justify-center gap-3 mt-8">
+          <button
+            onClick={() => navigate("/transactions")}
+            className="bg-primary text-primary-foreground px-6 py-3 rounded-xl font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 cursor-pointer"
+          >
+            Przejdź do Historii
+          </button>
+          <button
+            onClick={() => { setImportResult(null); resetImport(); }}
+            className="border border-border px-6 py-3 rounded-xl font-medium hover:bg-muted transition-colors cursor-pointer"
+          >
+            Importuj kolejny plik
+          </button>
+        </div>
       </div>
     );
   }
@@ -484,6 +529,12 @@ export default function Import() {
                 <AlertTriangle size={14} className="text-amber-500" />
                 Upewnij się, że mapowanie jest poprawne. Operacji nie da się cofnąć masowo.
               </p>
+              <button
+                onClick={resetImport}
+                className="text-xs text-muted-foreground hover:text-foreground underline mt-2 cursor-pointer"
+              >
+                Wybierz inny plik
+              </button>
             </div>
             <button
               onClick={handlePrepareCategories}

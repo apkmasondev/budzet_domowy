@@ -48,6 +48,18 @@ export default function Goals() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const parsedTarget = parseFloat(targetAmount);
+    if (!Number.isFinite(parsedTarget) || parsedTarget <= 0) {
+      showAlert("Nieprawidłowa kwota", "Kwota docelowa musi być liczbą większą od zera.");
+      return;
+    }
+    const parsedCurrent = parseFloat(currentAmount);
+    if (editingId && (!Number.isFinite(parsedCurrent) || parsedCurrent < 0)) {
+      showAlert("Nieprawidłowa kwota", "Kwota zgromadzona nie może być ujemna.");
+      return;
+    }
+
     try {
       if (editingId) {
         await updateGoalMutation.mutateAsync({
@@ -80,18 +92,24 @@ export default function Goals() {
 
   const executeDeposit = async (parsedAmount: number) => {
     if (!selectedGoalId || !accountId) return;
-    
-    await addToGoalMutation.mutateAsync({
-      goal_id: selectedGoalId,
-      amount: parsedAmount,
-      account_id: parseInt(accountId),
-      date: new Date().toISOString().substring(0, 10)
-    });
-    
-    setIsDepositModalOpen(false);
-    setDepositAmount("");
-    setAccountId("");
-    setPendingOverdraft(null);
+
+    try {
+      await addToGoalMutation.mutateAsync({
+        goal_id: selectedGoalId,
+        amount: parsedAmount,
+        account_id: parseInt(accountId),
+        date: new Date().toISOString().substring(0, 10)
+      });
+
+      setIsDepositModalOpen(false);
+      setDepositAmount("");
+      setAccountId("");
+      setPendingOverdraft(null);
+    } catch (error: any) {
+      // Odrzucenie po stronie Rusta (np. kwota <= 0) musi być widoczne dla użytkownika.
+      setPendingOverdraft(null);
+      showAlert("Nie udało się zasilić celu", String(error));
+    }
   };
 
   const handleDeposit = async (e: React.FormEvent) => {
@@ -99,13 +117,18 @@ export default function Goals() {
     if (!selectedGoalId || !accountId) return;
 
     const parsedAmount = parseFloat(depositAmount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      showAlert("Nieprawidłowa kwota", "Kwota wpłaty musi być liczbą większą od zera.");
+      return;
+    }
+
     const selectedAccount = accounts.find(a => a.id === parseInt(accountId));
-    
+
     if (selectedAccount && selectedAccount.balance < parsedAmount) {
       setPendingOverdraft({ amount: parsedAmount, accountName: selectedAccount.name });
       return;
     }
-    
+
     await executeDeposit(parsedAmount);
   };
 
@@ -395,6 +418,7 @@ export default function Goals() {
         onClose={() => setPendingOverdraft(null)}
         maxWidth="sm"
         showCloseButton={false}
+        closeOnBackdropClick={false}
       >
         <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mb-5">
           <AlertTriangle size={24} />

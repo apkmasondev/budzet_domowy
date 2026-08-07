@@ -140,7 +140,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   removePin: async () => {
     await api.setSetting("app_pin", "");
     await api.setSetting("app_pin_salt", "");
-    set({ hasPin: false });
+    // isUnlocked musi zostać ustawione jawnie: bez PIN-u aplikacja jest zawsze odblokowana.
+    set({ hasPin: false, isUnlocked: true });
   },
 
   setPrivacyMode: async (enabled) => {
@@ -151,6 +152,9 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   factoryReset: async () => {
     await api.factoryReset();
     set({ isDataLoaded: false });
+    // Reset czyści też część ustawień w bazie, więc stan bezpieczeństwa trzeba
+    // odczytać na nowo zamiast trzymać nieaktualną kopię w pamięci.
+    await get().checkAuthStatus();
     await get().fetchData(true);
   },
 

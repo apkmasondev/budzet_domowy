@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Download, Upload, AlertTriangle, CheckCircle2, Shield, EyeOff, Tag, Trash2, Power, Palette, Sun, Moon, Monitor, Pencil } from "lucide-react";
 import { api } from "../lib/api";
 import { useFinanceStore } from "../store/useFinanceStore";
@@ -30,6 +30,7 @@ export default function Settings() {
   // Modal states
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
 
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
@@ -37,9 +38,17 @@ export default function Settings() {
   const [catType, setCatType] = useState("expense");
   const [catColor, setCatColor] = useState("#8b5cf6");
 
+  // Timeout musi być czyszczony przy odmontowaniu i przy kolejnym komunikacie,
+  // inaczej wcześniejszy timer gasił świeżo pokazany komunikat.
+  const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (messageTimer.current) clearTimeout(messageTimer.current);
+  }, []);
+
   const showMessage = (type: 'success' | 'error', text: string) => {
+    if (messageTimer.current) clearTimeout(messageTimer.current);
     setMessage({ type, text });
-    setTimeout(() => setMessage(null), 5000);
+    messageTimer.current = setTimeout(() => setMessage(null), 5000);
   };
 
   const handleExport = async () => {
@@ -84,7 +93,9 @@ export default function Settings() {
             showMessage('success', 'Wgrano kopię zapasową. Odświeżanie...');
             setTimeout(() => window.location.reload(), 2000);
           } catch (err: any) {
-            showAlert("Błąd Importu", "Nie udało się wgrać pliku bazy danych.");
+            // Backend rozróżnia teraz "to nie jest baza SQLite", "to nie jest kopia
+            // Domowego Budżetu" i błąd kopiowania — pokazujemy konkret, nie ogólnik.
+            showAlert("Błąd Importu", String(err));
             setIsImporting(false);
           }
         }
@@ -96,11 +107,18 @@ export default function Settings() {
 
   const handleSetupPin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPin.length < 4) {
-      showAlert("Błędny PIN", "PIN musi mieć co najmniej 4 cyfry!");
+    // Ekran blokady akceptuje wyłącznie cyfry z klawiatury numerycznej, więc PIN
+    // zawierający cokolwiek innego byłby nie do wpisania — blokujemy go przy zapisie.
+    if (!/^\d{4,6}$/.test(newPin)) {
+      showAlert("Błędny PIN", "PIN musi składać się z 4 do 6 cyfr.");
+      return;
+    }
+    if (newPin !== confirmPin) {
+      showAlert("PIN-y się różnią", "Powtórzony PIN musi być identyczny z pierwszym.");
       return;
     }
     await setupPin(newPin);
+    setConfirmPin("");
     setIsPinModalOpen(false);
     setNewPin("");
     showMessage('success', 'Zabezpieczenie PIN zostało aktywowane.');
@@ -350,20 +368,39 @@ export default function Settings() {
       </div>
 
       {/* PIN Modal */}
-      <Modal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} title="Ustaw nowy PIN" maxWidth="sm">
+      <Modal
+        isOpen={isPinModalOpen}
+        onClose={() => { setIsPinModalOpen(false); setNewPin(""); setConfirmPin(""); }}
+        title="Ustaw nowy PIN"
+        maxWidth="sm"
+      >
         <form onSubmit={handleSetupPin}>
+          <label className="block text-sm font-medium mb-2">Nowy PIN (4-6 cyfr)</label>
           <input
             type="password"
             required
+            inputMode="numeric"
             maxLength={6}
-            pattern="[0-9]*"
             value={newPin}
-            onChange={e => setNewPin(e.target.value)}
+            // Filtrujemy znaki już przy wpisywaniu — atrybut `pattern` sam z siebie
+            // nie powstrzymywał wklejenia liter, a takiego PIN-u nie da się potem podać.
+            onChange={e => setNewPin(e.target.value.replace(/\D/g, ""))}
+            className="w-full bg-background border border-border rounded-xl px-3 py-3 text-center text-2xl tracking-[1em] focus:outline-none focus:ring-2 focus:ring-primary mb-4"
+            placeholder="****"
+          />
+          <label className="block text-sm font-medium mb-2">Powtórz PIN</label>
+          <input
+            type="password"
+            required
+            inputMode="numeric"
+            maxLength={6}
+            value={confirmPin}
+            onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ""))}
             className="w-full bg-background border border-border rounded-xl px-3 py-3 text-center text-2xl tracking-[1em] focus:outline-none focus:ring-2 focus:ring-primary mb-6"
             placeholder="****"
           />
           <div className="flex justify-end gap-3">
-            <Button type="button" onClick={() => setIsPinModalOpen(false)} variant="ghost">Anuluj</Button>
+            <Button type="button" onClick={() => { setIsPinModalOpen(false); setNewPin(""); setConfirmPin(""); }} variant="ghost">Anuluj</Button>
             <Button type="submit" variant="primary">Zapisz PIN</Button>
           </div>
         </form>

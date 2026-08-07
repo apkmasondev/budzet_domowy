@@ -84,10 +84,12 @@ pub fn delete_account(conn: &mut Connection, id: i64) -> Result<()> {
 
     for (acc_id, to_id, amount) in transfers {
         if acc_id == id {
+            // Konto usuwane było źródłem — odbieramy środki koncu docelowemu.
             if let Some(other_id) = to_id {
                 tx.execute("UPDATE accounts SET balance = balance - ?1 WHERE id = ?2", params![amount, other_id])?;
             }
-        } else if Some(acc_id) != Some(id) && to_id == Some(id) {
+        } else if to_id == Some(id) {
+            // Konto usuwane było celem — zwracamy środki koncu źródłowemu.
             tx.execute("UPDATE accounts SET balance = balance + ?1 WHERE id = ?2", params![amount, acc_id])?;
         }
     }
@@ -105,10 +107,13 @@ pub fn delete_account(conn: &mut Connection, id: i64) -> Result<()> {
         tx.execute("UPDATE goals SET current_amount = current_amount - ?1 WHERE id = ?2", params![amount, gid])?;
     }
 
-    tx.execute("DELETE FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE account_id = ?1)", params![id])?;
+    // Musi obejmować także transfery przychodzące (transfer_to_id), inaczej ich tagi
+    // zostają w transaction_tags jako sieroty po skasowaniu transakcji.
+    tx.execute("DELETE FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE account_id = ?1 OR transfer_to_id = ?1)", params![id])?;
     tx.execute("DELETE FROM transactions WHERE account_id = ?1 OR transfer_to_id = ?1", params![id])?;
     tx.execute("UPDATE recurring SET account_id = NULL WHERE account_id = ?1", params![id])?;
     tx.execute("DELETE FROM accounts WHERE id = ?1", params![id])?;
+    crate::db::tags::prune_orphan_tags(&tx)?;
     tx.commit()?;
     Ok(())
 }
@@ -121,7 +126,63 @@ mod tests {
     fn setup_in_memory_db() -> Connection {
         let mut conn = Connection::open_in_memory().unwrap();
         crate::db::migrations::run_migrations(&mut conn).unwrap();
+        crate::db::configure_connection(&conn).unwrap();
         conn
+    }
+
+    fn make_account(conn: &Connection, name: &str, balance: f64) -> i64 {
+        create_account(
+            conn,
+            CreateAccountPayload {
+                name: name.to_string(),
+                type_: "bank".to_string(),
+                currency: "PLN".to_string(),
+                balance,
+                color: None,
+            },
+        )
+        .unwrap()
+    }
+
+    fn balance_of(conn: &Connection, id: i64) -> f64 {
+        conn.query_row("SELECT balance FROM accounts WHERE id = ?1", [id], |r| r.get(0))
+            .unwrap()
+    }
+
+    /// Usunięcie konta będącego CELEM przelewu musi oddać środki koncu źródłowemu.
+    #[test]
+    fn test_delete_account_reverts_incoming_transfer() {
+        let mut conn = setup_in_memory_db();
+        let source = make_account(&conn, "Źródłowe", 1000.0);
+        let target = make_account(&conn, "Docelowe", 0.0);
+
+        crate::db::transactions::create_transaction(
+            &mut conn,
+            crate::db::transactions::CreateTransactionPayload {
+                account_id: source,
+                category_id: None,
+                amount: 250.0,
+                type_: "transfer".to_string(),
+                description: None,
+                date: "2024-05-10".to_string(),
+                transfer_to_id: Some(target),
+                tags: Some(vec!["oszczednosci".to_string()]),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(balance_of(&conn, source), 750.0);
+        assert_eq!(balance_of(&conn, target), 250.0);
+
+        delete_account(&mut conn, target).unwrap();
+
+        // Środki wracają na konto źródłowe...
+        assert_eq!(balance_of(&conn, source), 1000.0);
+        // ...a po transakcji nie zostają osierocone powiązania z tagami.
+        let orphan_tags: i64 = conn
+            .query_row("SELECT COUNT(*) FROM transaction_tags", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(orphan_tags, 0);
     }
 
     #[test]
